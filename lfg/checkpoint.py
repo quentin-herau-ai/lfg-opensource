@@ -16,7 +16,7 @@ from .config import (
     checkpoint_looks_multiview,
     model_config_from_checkpoint,
 )
-from .model import build_model, model_config_error
+from .model import build_model
 from .paths import ensure_local_path
 
 
@@ -44,33 +44,6 @@ class CheckpointLoadReport:
             "unexpected_keys": self.unexpected_keys,
             "skipped_shape_mismatches": self.skipped_shape_mismatches,
             "ignored_checkpoint_keys": self.ignored_checkpoint_keys,
-        }
-
-
-@dataclass(frozen=True)
-class CheckpointInspection:
-    checkpoint_info: dict[str, Any]
-    model_config: ModelConfig
-    state_dict_key_count: int
-    looks_multiview: bool
-    has_autoregressive_state: bool
-    optional_heads: dict[str, bool]
-    configuration_error: str | None = None
-
-    @property
-    def is_supported_single_view(self) -> bool:
-        return self.has_autoregressive_state and not self.looks_multiview and self.configuration_error is None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "checkpoint_info": self.checkpoint_info,
-            "model_config": self.model_config.to_dict(),
-            "state_dict_key_count": self.state_dict_key_count,
-            "looks_multiview": self.looks_multiview,
-            "has_autoregressive_state": self.has_autoregressive_state,
-            "is_supported_single_view": self.is_supported_single_view,
-            "optional_heads": self.optional_heads,
-            "configuration_error": self.configuration_error,
         }
 
 
@@ -183,32 +156,6 @@ def checkpoint_config(checkpoint: Any) -> Any:
     if not isinstance(checkpoint, Mapping):
         return None
     return checkpoint.get("config") or checkpoint.get("args")
-
-
-def inspect_checkpoint(
-    checkpoint_path: str | Path,
-) -> CheckpointInspection:
-    """Inspect checkpoint compatibility without constructing the model."""
-
-    checkpoint = load_checkpoint_file(checkpoint_path, map_location="cpu")
-    state_dict = extract_state_dict(checkpoint)
-    config_payload = checkpoint_config(checkpoint)
-
-    model_config = model_config_from_checkpoint(config_payload, state_dict)
-    optional_heads = {
-        "segmentation": any(key.startswith("segmentation_head.") for key in state_dict),
-        "motion": any(key.startswith("motion_head.") for key in state_dict),
-        "flow": any(key.startswith("flow_head.") for key in state_dict),
-    }
-    return CheckpointInspection(
-        checkpoint_info=checkpoint_metadata(checkpoint),
-        model_config=model_config,
-        state_dict_key_count=len(state_dict),
-        looks_multiview=checkpoint_looks_multiview(config_payload, state_dict),
-        has_autoregressive_state=checkpoint_has_autoregressive_state(state_dict),
-        optional_heads=optional_heads,
-        configuration_error=model_config_error(model_config),
-    )
 
 
 def _filter_state_dict_for_model(

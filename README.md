@@ -113,22 +113,3 @@ outputs/.../
 | `flow` | `[M+N, H, W, 2]` | Optical-flow logits, if enabled. |
 
 For long videos or image sequences, inference streams sampled frames through sliding windows instead of decoding the full input into memory first. The first `M` predictions correspond to the input/history frames for that window; the next `N` predictions are autoregressive future predictions. The JSON metadata records the source frame indices and which slots are padded for short tail windows.
-
-## Inspect Without Running Inference
-
-```bash
-python infer.py /path/to/video.mp4 \
-  --checkpoint checkpoints/lfg.pt \
-  --inspect-only \
-  --output-dir outputs/inspect
-```
-
-This validates input discovery and checkpoint loading, then writes `run_metadata.json`. For videos, inspect mode uses container metadata when available and does not decode or store every frame.
-
-`--inspect-only` does not construct the full model. It reports checkpoint metadata, inferred `M`/`N`, optional heads, and whether the checkpoint is compatible with this single-view inference repo.
-
-## Notes
-
-- Do not commit model checkpoints to the repository. Keep checkpoints as separate local files when running inference.
-- The repository is Apache-2.0 licensed. Some bundled model components retain upstream Apache-2.0 headers; review `THIRD_PARTY_NOTICES.md`.
-- This repo intentionally rejects multi-view checkpoints. Use a checkpoint trained for the single-view `LFG` architecture.

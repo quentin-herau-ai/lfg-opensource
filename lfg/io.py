@@ -5,7 +5,7 @@ import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 import cv2
 import numpy as np
@@ -26,34 +26,6 @@ class Frame:
     source: str
     frame_index: int
     timestamp_sec: float | None = None
-
-
-@dataclass(frozen=True)
-class InputInspection:
-    input: str
-    kind: str
-    frame_count: int | None
-    sampled_frame_count: int
-    first_frame: str | None = None
-    last_frame: str | None = None
-    first_frame_index: int | None = None
-    last_frame_index: int | None = None
-    fps: float | None = None
-    duration_sec: float | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "input": self.input,
-            "kind": self.kind,
-            "frame_count": self.frame_count,
-            "sampled_frame_count": self.sampled_frame_count,
-            "first_frame": self.first_frame,
-            "last_frame": self.last_frame,
-            "first_frame_index": self.first_frame_index,
-            "last_frame_index": self.last_frame_index,
-            "fps": _finite_float_or_none(self.fps),
-            "duration_sec": _finite_float_or_none(self.duration_sec),
-        }
 
 
 def _finite_float_or_none(value: float | None) -> float | None:
@@ -86,13 +58,6 @@ def _load_image(path: Path, frame_index: int) -> Frame:
     return Frame(rgb=rgb, source=str(path), frame_index=frame_index)
 
 
-def _load_image_sequence(paths: Iterable[Path]) -> list[Frame]:
-    frames = []
-    for index, path in enumerate(paths):
-        frames.append(_load_image(path, index))
-    return frames
-
-
 def _iter_indexed_images(indexed_paths: Iterable[tuple[int, Path]]) -> Iterable[Frame]:
     for index, path in indexed_paths:
         yield _load_image(path, index)
@@ -101,23 +66,6 @@ def _iter_indexed_images(indexed_paths: Iterable[tuple[int, Path]]) -> Iterable[
 def _list_images(directory: Path) -> list[Path]:
     files = [path for path in directory.iterdir() if path.suffix.lower() in IMAGE_EXTENSIONS]
     return sorted(files, key=lambda path: _natural_key(path.name))
-
-
-def _sampled_count(
-    total_frames: int,
-    *,
-    frame_stride: int,
-    max_frames: int | None,
-    start_frame: int,
-) -> int:
-    stride = max(1, frame_stride)
-    start = max(0, start_frame)
-    if total_frames <= start:
-        return 0
-    count = ((total_frames - 1 - start) // stride) + 1
-    if max_frames is not None:
-        count = min(count, max(0, max_frames))
-    return count
 
 
 def _sample_indexed_paths(
@@ -133,174 +81,6 @@ def _sample_indexed_paths(
     if max_frames is not None:
         sampled = sampled[: max(0, max_frames)]
     return sampled
-
-
-def _inspect_image_sequence(
-    input_path: str,
-    *,
-    kind: str,
-    paths: list[Path],
-    frame_stride: int,
-    max_frames: int | None,
-    start_frame: int,
-) -> InputInspection:
-    sampled = _sample_indexed_paths(
-        paths,
-        frame_stride=frame_stride,
-        max_frames=max_frames,
-        start_frame=start_frame,
-    )
-    first = sampled[0] if sampled else None
-    last = sampled[-1] if sampled else None
-    return InputInspection(
-        input=input_path,
-        kind=kind,
-        frame_count=len(paths),
-        sampled_frame_count=len(sampled),
-        first_frame=None if first is None else str(first[1]),
-        last_frame=None if last is None else str(last[1]),
-        first_frame_index=None if first is None else first[0],
-        last_frame_index=None if last is None else last[0],
-    )
-
-
-def _inspect_video_by_scanning(
-    cap: cv2.VideoCapture,
-    *,
-    frame_stride: int,
-    max_frames: int | None,
-    start_frame: int,
-) -> tuple[int, int, int | None, int | None]:
-    stride = max(1, frame_stride)
-    start = max(0, start_frame)
-    limit = None if max_frames is None else max(0, max_frames)
-    absolute_index = 0
-    sampled_count = 0
-    first_frame_index = None
-    last_frame_index = None
-
-    while True:
-        ok = cap.grab()
-        if not ok:
-            break
-        if (
-            (limit is None or sampled_count < limit)
-            and absolute_index >= start
-            and (absolute_index - start) % stride == 0
-        ):
-            if first_frame_index is None:
-                first_frame_index = absolute_index
-            last_frame_index = absolute_index
-            sampled_count += 1
-        absolute_index += 1
-
-    return absolute_index, sampled_count, first_frame_index, last_frame_index
-
-
-def _inspect_video(
-    path: Path,
-    *,
-    frame_stride: int,
-    max_frames: int | None,
-    start_frame: int,
-) -> InputInspection:
-    cap = cv2.VideoCapture(str(path))
-    if not cap.isOpened():
-        raise ValueError(f"Could not open video: {path}")
-
-    try:
-        fps = _positive_finite_float_or_none(cap.get(cv2.CAP_PROP_FPS))
-
-        raw_frame_count = _positive_finite_float_or_none(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_count = int(raw_frame_count) if raw_frame_count is not None else None
-        if frame_count is None:
-            frame_count, sampled_count, first_index, last_index = _inspect_video_by_scanning(
-                cap,
-                frame_stride=frame_stride,
-                max_frames=max_frames,
-                start_frame=start_frame,
-            )
-        else:
-            sampled_count = _sampled_count(
-                frame_count,
-                frame_stride=frame_stride,
-                max_frames=max_frames,
-                start_frame=start_frame,
-            )
-            first_index = max(0, start_frame) if sampled_count else None
-            last_index = None
-            if sampled_count:
-                last_index = first_index + (sampled_count - 1) * max(1, frame_stride)
-
-        return InputInspection(
-            input=str(path),
-            kind="video",
-            frame_count=frame_count,
-            sampled_frame_count=sampled_count,
-            first_frame=str(path) if sampled_count else None,
-            last_frame=str(path) if sampled_count else None,
-            first_frame_index=first_index,
-            last_frame_index=last_index,
-            fps=fps,
-            duration_sec=None if fps is None or frame_count is None else frame_count / fps,
-        )
-    finally:
-        cap.release()
-
-
-def inspect_input(
-    input_path: str,
-    *,
-    frame_stride: int = 1,
-    max_frames: int | None = None,
-    start_frame: int = 0,
-) -> InputInspection:
-    """Inspect local input frame counts without decoding image pixels."""
-
-    ensure_local_path(input_path, kind="Input")
-    path = Path(input_path)
-    if path.exists() and path.is_dir():
-        return _inspect_image_sequence(
-            input_path,
-            kind="image_directory",
-            paths=_list_images(path),
-            frame_stride=frame_stride,
-            max_frames=max_frames,
-            start_frame=start_frame,
-        )
-    if path.exists() and path.suffix.lower() in VIDEO_EXTENSIONS:
-        return _inspect_video(
-            path,
-            frame_stride=frame_stride,
-            max_frames=max_frames,
-            start_frame=start_frame,
-        )
-    if path.exists() and path.suffix.lower() in IMAGE_EXTENSIONS:
-        return _inspect_image_sequence(
-            input_path,
-            kind="image",
-            paths=[path],
-            frame_stride=frame_stride,
-            max_frames=max_frames,
-            start_frame=start_frame,
-        )
-    if _is_glob_pattern(input_path):
-        paths = [Path(item) for item in glob.glob(input_path)]
-        paths = sorted(
-            [item for item in paths if item.suffix.lower() in IMAGE_EXTENSIONS],
-            key=lambda item: _natural_key(str(item)),
-        )
-        return _inspect_image_sequence(
-            input_path,
-            kind="image_glob",
-            paths=paths,
-            frame_stride=frame_stride,
-            max_frames=max_frames,
-            start_frame=start_frame,
-        )
-    raise ValueError(
-        "Input must be a video file, image file, image directory, or quoted image glob pattern."
-    )
 
 
 def _iter_video_frames(
@@ -338,23 +118,6 @@ def _iter_video_frames(
             absolute_index += 1
     finally:
         cap.release()
-
-
-def _read_video(
-    path: Path,
-    *,
-    frame_stride: int = 1,
-    max_frames: int | None = None,
-    start_frame: int = 0,
-) -> list[Frame]:
-    return list(
-        _iter_video_frames(
-            path,
-            frame_stride=frame_stride,
-            max_frames=max_frames,
-            start_frame=start_frame,
-        )
-    )
 
 
 def iter_input_frames(
@@ -416,50 +179,6 @@ def iter_input_frames(
     )
 
 
-def load_frames(
-    input_path: str,
-    *,
-    frame_stride: int = 1,
-    max_frames: int | None = None,
-    start_frame: int = 0,
-) -> list[Frame]:
-    """Load a video, image directory, glob, or single image into RGB frames."""
-
-    ensure_local_path(input_path, kind="Input")
-    path = Path(input_path)
-    if path.exists() and path.is_dir():
-        frames = _load_image_sequence(_list_images(path))
-    elif path.exists() and path.suffix.lower() in VIDEO_EXTENSIONS:
-        frames = _read_video(
-            path,
-            frame_stride=max(1, frame_stride),
-            max_frames=max_frames,
-            start_frame=max(0, start_frame),
-        )
-        return frames
-    elif path.exists() and path.suffix.lower() in IMAGE_EXTENSIONS:
-        frames = [_load_image(path, 0)]
-    elif _is_glob_pattern(input_path):
-        paths = [Path(item) for item in glob.glob(input_path)]
-        paths = sorted(
-            [item for item in paths if item.suffix.lower() in IMAGE_EXTENSIONS],
-            key=lambda item: _natural_key(str(item)),
-        )
-        frames = _load_image_sequence(paths)
-    else:
-        raise ValueError(
-            "Input must be a video file, image file, image directory, or quoted image glob pattern."
-        )
-
-    if start_frame > 0:
-        frames = frames[start_frame:]
-    if frame_stride > 1:
-        frames = frames[::frame_stride]
-    if max_frames is not None:
-        frames = frames[:max_frames]
-    return frames
-
-
 def iter_frame_windows(
     frames: Iterable[Frame],
     *,
@@ -513,22 +232,6 @@ def iter_frame_windows(
         yield target_start, window, padded
         last_full_window_start = target_start
         target_start += stride
-
-
-def count_frame_windows(num_frames: int, *, history: int, window_stride: int) -> int:
-    if history <= 0:
-        raise ValueError("history must be positive")
-    if num_frames <= 0:
-        return 0
-    stride = max(1, window_stride)
-    count = 0
-    start = 0
-    while start < num_frames:
-        count += 1
-        if start + history >= num_frames:
-            break
-        start += stride
-    return count
 
 
 def preprocess_frames(

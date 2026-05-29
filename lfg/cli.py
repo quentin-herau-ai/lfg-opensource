@@ -9,14 +9,14 @@ from typing import Any
 import torch
 from tqdm import tqdm
 
-from lfg.checkpoint import inspect_checkpoint, load_model_from_checkpoint
+from lfg.checkpoint import load_model_from_checkpoint
 from lfg.inference import (
     predictions_to_numpy,
     predict_window,
     save_window_result,
     window_metadata,
 )
-from lfg.io import count_frame_windows, inspect_input, iter_frame_windows, iter_input_frames
+from lfg.io import iter_frame_windows, iter_input_frames
 from lfg.paths import ensure_local_path
 
 
@@ -58,11 +58,6 @@ def parse_args() -> argparse.Namespace:
         help="Save depth/confidence/segmentation/motion/flow PNG visualizations.",
     )
     parser.add_argument("--save-features", action="store_true", help="Also save large internal feature tensors.")
-    parser.add_argument(
-        "--inspect-only",
-        action="store_true",
-        help="Inspect input/checkpoint metadata without constructing the model or running inference.",
-    )
     return parser.parse_args()
 
 
@@ -123,59 +118,33 @@ def run() -> None:
     output_dir = Path(args.output_dir)
     validate_output_path(output_dir)
 
-    input_inspection = inspect_input(
-        args.input,
-        frame_stride=max(1, args.frame_stride),
-        max_frames=args.max_frames,
-        start_frame=max(0, args.start_frame),
+    model, config, load_report, checkpoint_info = load_model_from_checkpoint(
+        args.checkpoint,
+        device=device,
     )
-    if input_inspection.sampled_frame_count == 0:
-        raise ValueError("No input frames were found.")
-
-    inspection = inspect_checkpoint(args.checkpoint)
-    config = inspection.model_config
     window_stride = args.window_stride if args.window_stride is not None else config.m
-    expected_windows = count_frame_windows(
-        input_inspection.sampled_frame_count,
-        history=config.m,
-        window_stride=window_stride,
-    )
 
     run_metadata: dict[str, Any] = {
         "input": args.input,
         "checkpoint": str(args.checkpoint),
-        "checkpoint_inspection": inspection.to_dict(),
+        "checkpoint_info": checkpoint_info,
         "device": device,
         "model_config": config.to_dict(),
-        "input_inspection": input_inspection.to_dict(),
-        "num_input_frames": input_inspection.sampled_frame_count,
+        "load_report": {
+            "loaded_keys": load_report.loaded_keys,
+            "model_key_count": load_report.model_key_count,
+            "loaded_fraction": load_report.loaded_fraction,
+            "missing_key_count": len(load_report.missing_keys),
+            "unexpected_key_count": len(load_report.unexpected_keys),
+            "skipped_shape_mismatch_count": len(load_report.skipped_shape_mismatches),
+            "ignored_checkpoint_key_count": len(load_report.ignored_checkpoint_keys),
+        },
         "frame_stride": max(1, args.frame_stride),
         "window_stride": window_stride,
         "target_size": args.target_size,
         "resize_mode": args.resize_mode,
-        "expected_windows": expected_windows,
         "windows": [],
     }
-
-    if args.inspect_only:
-        prepare_output_dir(output_dir)
-        with (output_dir / "run_metadata.json").open("w", encoding="utf-8") as handle:
-            json.dump(run_metadata, handle, indent=2, allow_nan=False)
-        print(json.dumps(run_metadata, indent=2, allow_nan=False))
-        return
-
-    if inspection.looks_multiview:
-        raise ValueError(
-            "This checkpoint looks like a multi-view LFG checkpoint. "
-            "Use a single-view LFG checkpoint for this open-source inference repo."
-        )
-    if not inspection.has_autoregressive_state:
-        raise ValueError(
-            "This checkpoint does not contain LFG weights. "
-            "Single-view LFG inference expects an autoregressive single-view checkpoint."
-        )
-    if inspection.configuration_error is not None:
-        raise ValueError(inspection.configuration_error)
 
     frame_stream = iter_input_frames(
         args.input,
@@ -184,25 +153,10 @@ def run() -> None:
         start_frame=max(0, args.start_frame),
     )
 
-    model, config, load_report, checkpoint_info = load_model_from_checkpoint(
-        args.checkpoint,
-        device=device,
-    )
     prepare_output_dir(output_dir)
-    run_metadata["checkpoint_info"] = checkpoint_info
-    run_metadata["load_report"] = {
-        "loaded_keys": load_report.loaded_keys,
-        "model_key_count": load_report.model_key_count,
-        "loaded_fraction": load_report.loaded_fraction,
-        "missing_key_count": len(load_report.missing_keys),
-        "unexpected_key_count": len(load_report.unexpected_keys),
-        "skipped_shape_mismatch_count": len(load_report.skipped_shape_mismatches),
-        "ignored_checkpoint_key_count": len(load_report.ignored_checkpoint_keys),
-    }
-
     windows = iter_frame_windows(frame_stream, history=config.m, window_stride=window_stride)
     for window_index, (start_index, window_frames, padded) in enumerate(
-        tqdm(windows, desc="LFG inference", total=expected_windows)
+        tqdm(windows, desc="LFG inference")
     ):
         predictions = predict_window(
             model,
@@ -240,6 +194,8 @@ def run() -> None:
         )
 
     run_metadata["written_windows"] = len(run_metadata["windows"])
+    if run_metadata["written_windows"] == 0:
+        raise ValueError("No input frames were found.")
     with (output_dir / "run_metadata.json").open("w", encoding="utf-8") as handle:
         json.dump(run_metadata, handle, indent=2, allow_nan=False)
     print(f"Wrote {run_metadata['written_windows']} window(s) to {output_dir}")
