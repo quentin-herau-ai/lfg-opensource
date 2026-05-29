@@ -30,7 +30,7 @@ Place the single-view LFG checkpoint on the same machine, for example:
 ```bash
 mkdir -p checkpoints
 # put the provided local checkpoint at checkpoints/lfg.pt
-# or, for motion outputs in the web UI:
+# or, for motion outputs:
 # put the provided local motion checkpoint at checkpoints/pzow1k_seg_motion.pt
 ```
 
@@ -82,24 +82,6 @@ python infer.py "/path/to/frames/*.jpg" \
 ```
 
 Image files are sorted with natural numeric ordering, so `frame_2.jpg` comes before `frame_10.jpg`.
-
-## Run From A Browser
-
-Start the local web UI:
-
-```bash
-python web.py --host 0.0.0.0 --port 7860
-```
-
-Then open the machine's LAN or Tailscale address from a browser, for example:
-
-```text
-http://100.x.y.z:7860
-```
-
-The web UI uses the same local-only inference path as `infer.py`. You can upload images or a video from the browser, or enter a path that already exists on the server. Outputs are written under `outputs/web/runs/`.
-If `checkpoints/pzow1k_seg_motion.pt` exists, the web UI uses it by default so the Motion tab is populated. Otherwise it defaults to `checkpoints/lfg.pt`.
-The first three visualized slots in each window are current-frame predictions; later slots are autoregressive future predictions.
 
 ## Checkpoint Overrides
 
@@ -178,7 +160,6 @@ This validates input discovery and checkpoint loading, then writes `run_metadata
 ## Development Checks
 
 ```bash
-python -m unittest discover -s tests
 python -m py_compile infer.py lfg/*.py $(find Pi3 -type f -name '*.py' | sort)
 python -m pip wheel . --no-deps -w /tmp/lfg_wheel
 ```

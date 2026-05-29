@@ -21,7 +21,6 @@ dependencies = [
 
 [project.scripts]
 lfg-infer = "lfg.cli:main"
-lfg-web = "lfg.web:main"
 
 [tool.setuptools]
 packages = {find = {include = ["lfg*", "Pi3*"]}}
