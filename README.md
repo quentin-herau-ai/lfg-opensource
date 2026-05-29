@@ -34,7 +34,7 @@ mkdir -p checkpoints
 # put the provided local motion checkpoint at checkpoints/pzow1k_seg_motion.pt
 ```
 
-The checkpoint must contain single-view `LFG` weights, usually under `model_state_dict`. Checkpoints are loaded with PyTorch's safe weights-only loader. If the checkpoint includes saved config metadata or `args`, `infer.py` reads `M`, `N`, architecture settings, and optional heads automatically from plain dictionaries, `argparse.Namespace`, `types.SimpleNamespace`, or YACS config metadata. It also infers decoder size, autoregressive layer count, point head type, and optional heads from state-dict keys when possible. `M + N` must be at most 15 frames. The loader refuses partial model loads so inference does not run with randomly initialized weights. If metadata is missing, pass the overrides shown below.
+The checkpoint should be one of the provided single-view `LFG` checkpoints. The loader reads the model configuration from checkpoint metadata and state-dict keys, builds the matching model, and loads the weights locally.
 
 ## Run On A Video
 
@@ -82,36 +82,6 @@ python infer.py "/path/to/frames/*.jpg" \
 ```
 
 Image files are sorted with natural numeric ordering, so `frame_2.jpg` comes before `frame_10.jpg`.
-
-## Checkpoint Overrides
-
-Use these when a checkpoint does not carry enough config metadata:
-
-```bash
-python infer.py /path/to/video.mp4 \
-  --checkpoint checkpoints/lfg.pt \
-  --m 3 \
-  --n 3 \
-  --ar-n-heads 8 \
-  --ar-n-layers 4 \
-  --use-segmentation-head \
-  --segmentation-classes 7 \
-  --output-dir outputs/manual_config
-```
-
-Other overrides:
-
-```bash
---encoder-name dinov2
---decoder-size large   # small, base, or large
---ar-dropout 0.1
---use-motion-head / --no-use-motion-head
---use-flow-head / --no-use-flow-head
---point-head-type linear   # linear, refined, conv, or simple_conv
---target-size 518   # must be divisible by 14
---resize-mode crop   # or pad
---keep-ratio
-```
 
 ## Outputs
 

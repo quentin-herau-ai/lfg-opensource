@@ -187,8 +187,6 @@ def checkpoint_config(checkpoint: Any) -> Any:
 
 def inspect_checkpoint(
     checkpoint_path: str | Path,
-    *,
-    overrides: Mapping[str, Any] | None = None,
 ) -> CheckpointInspection:
     """Inspect checkpoint compatibility without constructing the model."""
 
@@ -197,9 +195,6 @@ def inspect_checkpoint(
     config_payload = checkpoint_config(checkpoint)
 
     model_config = model_config_from_checkpoint(config_payload, state_dict)
-    if overrides:
-        model_config = model_config.with_overrides(**dict(overrides))
-
     optional_heads = {
         "segmentation": any(key.startswith("segmentation_head.") for key in state_dict),
         "motion": any(key.startswith("motion_head.") for key in state_dict),
@@ -268,7 +263,6 @@ def load_model_from_checkpoint(
     checkpoint_path: str | Path,
     *,
     device: str | torch.device = "cuda",
-    overrides: Mapping[str, Any] | None = None,
 ) -> tuple[torch.nn.Module, ModelConfig, CheckpointLoadReport, dict[str, Any]]:
     """Load a single-view LFG model from a local checkpoint file."""
 
@@ -288,9 +282,6 @@ def load_model_from_checkpoint(
         )
 
     model_config = model_config_from_checkpoint(config_payload, state_dict)
-    if overrides:
-        model_config = model_config.with_overrides(**dict(overrides))
-
     model = build_model(model_config)
     model_state = model.state_dict()
     filtered_state, shape_mismatches, ignored_keys = _filter_state_dict_for_model(state_dict, model_state)

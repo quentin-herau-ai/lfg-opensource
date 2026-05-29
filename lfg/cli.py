@@ -27,47 +27,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="outputs/lfg_inference", help="Directory for predictions and visualizations.")
     parser.add_argument("--device", default="auto", help="auto, cuda, cuda:0, or cpu.")
 
-    parser.add_argument("--m", type=int, default=None, help="Override number of input/history frames.")
-    parser.add_argument("--n", type=int, default=None, help="Override number of autoregressive future frames.")
-    parser.add_argument(
-        "--encoder-name",
-        default=None,
-        help="Override checkpoint encoder name. Currently only dinov2 is supported.",
-    )
-    parser.add_argument("--decoder-size", choices=["small", "base", "large"], default=None, help="Override decoder width.")
-    parser.add_argument("--ar-n-heads", type=int, default=None, help="Override autoregressive transformer attention heads.")
-    parser.add_argument("--ar-n-layers", type=int, default=None, help="Override autoregressive transformer layer count.")
-    parser.add_argument("--ar-dropout", type=float, default=None, help="Override autoregressive transformer dropout.")
-    parser.add_argument(
-        "--use-segmentation-head",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Override segmentation head construction.",
-    )
-    parser.add_argument(
-        "--segmentation-classes",
-        type=int,
-        default=None,
-        help="Override segmentation class count when using a segmentation checkpoint.",
-    )
-    parser.add_argument(
-        "--use-motion-head",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Override motion head construction.",
-    )
-    parser.add_argument(
-        "--use-flow-head",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Override flow head construction.",
-    )
-    parser.add_argument(
-        "--point-head-type",
-        choices=["linear", "refined", "conv", "simple_conv"],
-        default=None,
-        help="Override point prediction head type.",
-    )
     parser.add_argument(
         "--target-size",
         type=int,
@@ -83,7 +42,7 @@ def parse_args() -> argparse.Namespace:
         "--window-stride",
         type=int,
         default=None,
-        help="Advance N sampled frames between model windows. Defaults to M.",
+        help="Advance N sampled frames between model windows. Defaults to the checkpoint history length.",
     )
 
     parser.add_argument(
@@ -124,23 +83,6 @@ def resolve_device(device_arg: str) -> str:
                 f"Device '{device_arg}' was requested, but only {torch.cuda.device_count()} CUDA device(s) are available."
             )
     return device_arg
-
-
-def model_overrides(args: argparse.Namespace) -> dict[str, Any]:
-    return {
-        "m": args.m,
-        "n": args.n,
-        "encoder_name": args.encoder_name,
-        "decoder_size": args.decoder_size,
-        "ar_n_heads": args.ar_n_heads,
-        "ar_n_layers": args.ar_n_layers,
-        "ar_dropout": args.ar_dropout,
-        "use_segmentation_head": args.use_segmentation_head,
-        "segmentation_num_classes": args.segmentation_classes,
-        "use_motion_head": args.use_motion_head,
-        "use_flow_head": args.use_flow_head,
-        "point_head_type": args.point_head_type,
-    }
 
 
 def validate_args(args: argparse.Namespace) -> None:
@@ -190,7 +132,7 @@ def run() -> None:
     if input_inspection.sampled_frame_count == 0:
         raise ValueError("No input frames were found.")
 
-    inspection = inspect_checkpoint(args.checkpoint, overrides=model_overrides(args))
+    inspection = inspect_checkpoint(args.checkpoint)
     config = inspection.model_config
     window_stride = args.window_stride if args.window_stride is not None else config.m
     expected_windows = count_frame_windows(
@@ -245,7 +187,6 @@ def run() -> None:
     model, config, load_report, checkpoint_info = load_model_from_checkpoint(
         args.checkpoint,
         device=device,
-        overrides=model_overrides(args),
     )
     prepare_output_dir(output_dir)
     run_metadata["checkpoint_info"] = checkpoint_info

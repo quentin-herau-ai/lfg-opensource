@@ -25,8 +25,8 @@ class ModelConfig:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
-    def with_overrides(self, **overrides: Any) -> "ModelConfig":
-        clean = {key: value for key, value in overrides.items() if value is not None}
+    def with_updates(self, **updates: Any) -> "ModelConfig":
+        clean = {key: value for key, value in updates.items() if value is not None}
         return replace(self, **clean)
 
 
@@ -190,7 +190,7 @@ def model_config_from_checkpoint(
     inferred = {}
     inferred.update(_infer_architecture_from_state(state_dict))
     inferred.update(_infer_optional_heads(state_dict))
-    return config.with_overrides(**inferred)
+    return config.with_updates(**inferred)
 
 
 def checkpoint_looks_multiview(
