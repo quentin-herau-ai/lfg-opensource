@@ -157,23 +157,7 @@ This validates input discovery and checkpoint loading, then writes `run_metadata
 
 `--inspect-only` does not construct the full model. It reports checkpoint metadata, inferred `M`/`N`, optional heads, and whether the checkpoint is compatible with this single-view inference repo.
 
-## Development Checks
-
-```bash
-python -m py_compile infer.py lfg/*.py $(find Pi3 -type f -name '*.py' | sort)
-python -m pip wheel . --no-deps -w /tmp/lfg_wheel
-```
-
-Before publishing a wheel, install it into a temporary target and check that the bundled Pi3 package resolves outside the source tree:
-
-```bash
-rm -rf /tmp/lfg_install_check
-python -m pip install /tmp/lfg_wheel/lfg_opensource-*.whl --no-deps --target /tmp/lfg_install_check
-PYTHONPATH=/tmp/lfg_install_check /tmp/lfg_install_check/bin/lfg-infer --help
-PYTHONPATH=/tmp/lfg_install_check python -c "from lfg.model import build_model; from lfg.config import ModelConfig; build_model(ModelConfig(decoder_size='small', ar_n_layers=1, n=0))"
-```
-
-## Notes For Public Release
+## Notes
 
 - Do not commit model checkpoints to the repository. Keep checkpoints as separate local files when running inference.
 - The repository is Apache-2.0 licensed. Some bundled model components retain upstream Apache-2.0 headers; review `THIRD_PARTY_NOTICES.md`.
