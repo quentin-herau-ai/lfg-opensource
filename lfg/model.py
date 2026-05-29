@@ -38,7 +38,7 @@ def model_config_error(config: ModelConfig) -> str | None:
     if config.encoder_name not in SUPPORTED_ENCODERS:
         return (
             f"Unsupported encoder_name '{config.encoder_name}'. "
-            "This inference package currently supports single-view dinov2 LFG checkpoints."
+            "This inference package currently supports dinov2 LFG checkpoints."
         )
     if config.decoder_size not in SUPPORTED_DECODER_SIZES:
         return "decoder_size must be one of: small, base, large"
@@ -62,7 +62,7 @@ def validate_model_config(config: ModelConfig) -> None:
 
 
 def build_model(config: ModelConfig):
-    """Instantiate the single-view LFG model."""
+    """Instantiate the LFG model."""
 
     validate_model_config(config)
     _ensure_local_pi3_on_path()

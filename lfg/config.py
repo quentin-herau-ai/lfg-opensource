@@ -7,7 +7,7 @@ from typing import Any, Mapping
 
 @dataclass(frozen=True)
 class ModelConfig:
-    """Architecture settings needed to build the single-view LFG model."""
+    """Architecture settings needed to build the LFG model."""
 
     m: int = 3
     n: int = 3

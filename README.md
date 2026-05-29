@@ -2,7 +2,7 @@
 
 This repository contains the open-source local inference code path for LFG. It loads a trained `LFG` checkpoint and runs it on either a video file or an ordered sequence of RGB images.
 
-This public version runs local inference only. It loads local checkpoint files and local video/image inputs; it does not include training or multi-view workflows.
+This public version runs local inference only. It loads local checkpoint files and local video/image inputs.
 
 All input and checkpoint arguments must be ordinary filesystem paths on the same machine. URI-style locations are rejected by the CLI.
 
@@ -25,7 +25,7 @@ By default the CLI uses `--device auto`, which selects CUDA when a local GPU is 
 
 ## Checkpoint
 
-Place the single-view LFG checkpoint on the same machine, for example:
+Place the LFG checkpoint on the same machine, for example:
 
 ```bash
 mkdir -p checkpoints
@@ -34,7 +34,7 @@ mkdir -p checkpoints
 # put the provided local motion checkpoint at checkpoints/pzow1k_seg_motion.pt
 ```
 
-The checkpoint should be one of the provided single-view `LFG` checkpoints. The loader reads the model configuration from checkpoint metadata and state-dict keys, builds the matching model, and loads the weights locally.
+The checkpoint should be one of the provided `LFG` checkpoints. The loader reads the model configuration from checkpoint metadata and state-dict keys, builds the matching model, and loads the weights locally.
 
 ## Run On A Video
 

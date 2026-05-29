@@ -21,9 +21,9 @@ from lfg.paths import ensure_local_path
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run single-view LFG inference on a video or image sequence.")
+    parser = argparse.ArgumentParser(description="Run LFG inference on a video or image sequence.")
     parser.add_argument("input", help="Video file, image file, image directory, or quoted image glob.")
-    parser.add_argument("--checkpoint", required=True, help="Path to a single-view LFG checkpoint.")
+    parser.add_argument("--checkpoint", required=True, help="Path to an LFG checkpoint.")
     parser.add_argument("--output-dir", default="outputs/lfg_inference", help="Directory for predictions and visualizations.")
     parser.add_argument("--device", default="auto", help="auto, cuda, cuda:0, or cpu.")
 

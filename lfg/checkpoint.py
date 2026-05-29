@@ -201,7 +201,7 @@ def _validate_full_model_load(report: CheckpointLoadReport) -> None:
             f"{_preview_keys(report.skipped_shape_mismatches, limit=4)}"
         )
     raise ValueError(
-        "Checkpoint did not fully load into the single-view model; refusing to run inference "
+        "Checkpoint did not fully load into the model; refusing to run inference "
         f"with randomly initialized weights ({'; '.join(details)})."
     )
 
@@ -211,7 +211,7 @@ def load_model_from_checkpoint(
     *,
     device: str | torch.device = "cuda",
 ) -> tuple[torch.nn.Module, ModelConfig, CheckpointLoadReport, dict[str, Any]]:
-    """Load a single-view LFG model from a local checkpoint file."""
+    """Load an LFG model from a local checkpoint file."""
 
     checkpoint = load_checkpoint_file(checkpoint_path, map_location="cpu")
     state_dict = extract_state_dict(checkpoint)
@@ -219,21 +219,17 @@ def load_model_from_checkpoint(
 
     if checkpoint_looks_multiview(config_payload, state_dict):
         raise ValueError(
-            "This checkpoint looks like a multi-view LFG checkpoint. "
-            "Use a single-view LFG checkpoint for this open-source inference repo."
+            "This checkpoint is not compatible with this inference repo."
         )
     if not checkpoint_has_autoregressive_state(state_dict):
-        raise ValueError(
-            "This checkpoint does not contain LFG weights. "
-            "Single-view LFG inference expects an autoregressive single-view checkpoint."
-        )
+        raise ValueError("This checkpoint does not contain LFG weights.")
 
     model_config = model_config_from_checkpoint(config_payload, state_dict)
     model = build_model(model_config)
     model_state = model.state_dict()
     filtered_state, shape_mismatches, ignored_keys = _filter_state_dict_for_model(state_dict, model_state)
     if not filtered_state:
-        raise ValueError("No checkpoint tensors matched the single-view model architecture.")
+        raise ValueError("No checkpoint tensors matched the model architecture.")
 
     missing, unexpected = model.load_state_dict(filtered_state, strict=False)
     report = CheckpointLoadReport(

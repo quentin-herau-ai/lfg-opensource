@@ -1,4 +1,4 @@
-"""Single-view LFG inference helpers."""
+"""LFG inference helpers."""
 
 from .config import ModelConfig
 from .checkpoint import load_model_from_checkpoint
