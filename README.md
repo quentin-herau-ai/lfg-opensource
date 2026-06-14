@@ -120,3 +120,7 @@ outputs/.../
 | `flow` | `[M+N, H, W, 2]` | Optical-flow logits, if enabled. |
 
 For long videos or image sequences, inference streams sampled frames through sliding windows instead of decoding the full input into memory first. The first `M` predictions correspond to the input/history frames for that window; the next `N` predictions are autoregressive future predictions. The JSON metadata records the source frame indices and which slots are padded for short tail windows.
+
+## Acknowledgments
+
+LFG builds on the excellent [Pi3](https://github.com/yyfz/Pi3) project, whose model code is bundled under `Pi3/`. We thank the Pi3 authors for releasing their work. Pi3 in turn builds on [DINOv2](https://github.com/facebookresearch/dinov2) (Meta Platforms), bundled under `Pi3/pi3/models/dinov2/`.
