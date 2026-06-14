@@ -1,5 +1,12 @@
 # LFG Open Source
 
+[![arXiv](https://img.shields.io/badge/arXiv-2602.22091-b31b1b.svg)](https://arxiv.org/abs/2602.22091) [![Project Page](https://img.shields.io/badge/Project-Page-blue.svg)](https://lfg-ai.github.io/)
+
+- **Paper:** https://arxiv.org/abs/2602.22091
+- **Project page:** https://lfg-ai.github.io/
+
+> **Note:** The pretrained checkpoint will be released soon. Stay tuned.
+
 This repository contains the open-source local inference code path for LFG. It loads a trained `LFG` checkpoint and runs it on either a video file or an ordered sequence of RGB images.
 
 This public version runs local inference only. It loads local checkpoint files and local video/image inputs.
@@ -25,7 +32,7 @@ By default the CLI uses `--device auto`, which selects CUDA when a local GPU is 
 
 ## Checkpoint
 
-Place the LFG checkpoint on the same machine, for example:
+The pretrained LFG checkpoint will be released soon. Once available, place it on the same machine, for example:
 
 ```bash
 mkdir -p checkpoints
