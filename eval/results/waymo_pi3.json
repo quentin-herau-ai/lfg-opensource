@@ -1,0 +1,100 @@
+{
+  "checkpoint": "/mnt/data/quentin.herau/.cache/huggingface/hub/models--yyfz233--Pi3/snapshots/ae722e7039287d0c8fde9f11f197f804f44b510c/model.safetensors",
+  "dataset": "waymo",
+  "clips_scored": 200,
+  "clips_evaluated": 200,
+  "clip_list": "eval/clips/waymo_200.txt",
+  "alignment": "per-clip",
+  "max_depth": 80.0,
+  "model": {
+    "model": "pi3",
+    "frames_seen": 6
+  },
+  "metrics": {
+    "overall_absrel": {
+      "mean": 0.17917992262790602,
+      "std": 0.10449071871426728,
+      "count": 200
+    },
+    "overall_rmse": {
+      "mean": 5.715063915252686,
+      "std": 2.105696537936023,
+      "count": 200
+    },
+    "predicted_absrel": {
+      "mean": 0.1792473576962948,
+      "std": 0.10477854526320196,
+      "count": 200
+    },
+    "predicted_rmse": {
+      "mean": 5.696100698709488,
+      "std": 2.1186841270011487,
+      "count": 200
+    },
+    "observed_absrel": {
+      "mean": 0.17911248755951722,
+      "std": 0.1044086932453736,
+      "count": 200
+    },
+    "observed_rmse": {
+      "mean": 5.734027131795883,
+      "std": 2.1162851844806654,
+      "count": 200
+    },
+    "trajectory_ate": {
+      "mean": 0.01818128928384233,
+      "std": 0.014302900228589568,
+      "count": 200
+    },
+    "trajectory_rot": {
+      "mean": 0.12624846764352818,
+      "std": 0.11675637947988911,
+      "count": 200
+    },
+    "trajectory_trans": {
+      "mean": 0.051292592890520995,
+      "std": 0.043573276675559665,
+      "count": 200
+    },
+    "overall_pa": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_miou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_mdice": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_fwiou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_pa": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_miou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_mdice": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_fwiou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    }
+  }
+}

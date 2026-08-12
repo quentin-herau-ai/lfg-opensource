@@ -153,14 +153,20 @@ For long videos or image sequences, inference streams sampled frames through sli
 
 ## 📊 Evaluation
 
-`evaluate.py` scores depth, semantic segmentation and trajectory on KITTI-360, following the
-protocol described in the paper. Each clip is six consecutive frames; LFG is given the first three and predicts
+`evaluate.py` scores depth, semantic segmentation and trajectory on KITTI-360 and the Waymo
+Open Dataset, following the protocol described in the paper. Each clip is six consecutive frames; LFG is given the first three and predicts
 all six, so results are reported over all frames (`overall`) and over the three it had to
 predict (`predicted`). Baselines that do not predict the future are given all six frames.
 
 ### Data
 
-Evaluation uses [KITTI-360](https://www.cvlibs.net/datasets/kitti-360/). Follow the download
+Two datasets are supported: [KITTI-360](https://www.cvlibs.net/datasets/kitti-360/) for depth,
+segmentation and trajectory, and the [Waymo Open Dataset](https://waymo.com/open/) for depth and
+trajectory. Both require registration on their respective sites.
+
+#### KITTI-360
+
+Follow the download
 instructions on the official site to obtain the perspective images, Velodyne scans,
 calibrations, vehicle poses and 2D semantic labels, and unpack them into a single dataset
 root. The clip list shipped with this repo covers sequences `2013_05_28_drive_0000_sync` and
@@ -175,6 +181,21 @@ KITTI-360/
   data_poses/<sequence>/cam0_to_world.txt
 ```
 
+#### Waymo Open Dataset
+
+Download the v2 perception components below for the segments you want and keep the released
+layout — the loader reads the parquet directly, with no conversion step. The shipped clip list
+covers eight `validation` segments.
+
+```text
+waymo_v2/validation/
+  camera_image/<segment>.parquet
+  camera_calibration/<segment>.parquet
+  lidar/<segment>.parquet
+  lidar_camera_projection/<segment>.parquet
+  vehicle_pose/<segment>.parquet
+```
+
 ### Usage
 
 ```bash
@@ -184,9 +205,19 @@ python evaluate.py \
   --output results.json
 ```
 
-The 200 clips behind the tables below are listed in `eval/clips/kitti360_200.txt`, which is
-used by default; point `--clip-list` at your own file (one `<sequence>:<first frame>` per
-line) to score a different set. Baselines run through the same harness via `--model`:
+For Waymo, pass its root and clip list:
+
+```bash
+python evaluate.py \
+  --checkpoint checkpoints/lfg_seg_motion_m3n3.pt \
+  --dataset waymo --data-root /path/to/waymo_v2/validation \
+  --clip-list eval/clips/waymo_200.txt \
+  --output results_waymo.json
+```
+
+The clips behind the tables below are listed in `eval/clips/`; the KITTI-360 list is used by
+default. Point `--clip-list` at your own file (one `<sequence>:<first frame>` per line) to score
+a different set. Baselines run through the same harness via `--model`:
 
 | `--model` | Requires |
 |---|---|
@@ -198,8 +229,10 @@ line) to score a different set. Baselines run through the same harness via `--mo
 
 ### Results
 
-200 clips, per-clip scale-and-shift alignment, 518-wide inputs. Raw output in
+200 clips per dataset, per-clip scale-and-shift alignment, 518-wide inputs. Raw output in
 `eval/results/`.
+
+#### KITTI-360
 
 **Depth** (AbsRel, RMSE in metres, against Velodyne)
 
@@ -230,6 +263,24 @@ the first frame)
 
 Seeing only three frames, LFG stays within ~0.2 m RMSE of Pi3 with all six, and scores its
 predicted frames as well as the ones it observed.
+
+#### Waymo Open Dataset
+
+**Depth** (AbsRel, RMSE in metres, against LiDAR)
+
+| Model | Frames seen | AbsRel | RMSE | AbsRel (pred.) | RMSE (pred.) |
+|---|---|---|---|---|---|
+| Pi3 | 6 | 0.179 ± 0.104 | 5.72 ± 2.11 | 0.179 ± 0.105 | 5.70 ± 2.12 |
+| VGGT | 6 | 0.099 ± 0.066 | 4.15 ± 1.31 | 0.098 ± 0.066 | 4.16 ± 1.31 |
+| **LFG** | 3 | 0.187 ± 0.101 | 5.76 ± 2.02 | 0.188 ± 0.102 | 5.91 ± 2.10 |
+
+**Trajectory**
+
+| Model | Frames seen | ATE (m) | Rot (deg) | Trans (m) |
+|---|---|---|---|---|
+| Pi3 | 6 | 0.02 ± 0.01 | 0.13 ± 0.12 | 0.05 ± 0.04 |
+| VGGT | 6 | 0.02 ± 0.02 | 0.11 ± 0.11 | 0.07 ± 0.06 |
+| **LFG** | 3 | 0.23 ± 0.16 | 0.22 ± 0.11 | 0.35 ± 0.22 |
 
 ### Conventions
 

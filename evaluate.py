@@ -38,10 +38,11 @@ be present locally.
 
 Examples:
   python evaluate.py --checkpoint checkpoints/lfg_seg_motion_m3n3.pt \
-      --dataset kitti360 --data-root /data/KITTI-360 --clip-list eval/clips/kitti360_200.txt
+      --dataset kitti360 --data-root /data/KITTI-360
 
   python evaluate.py --model pi3 --checkpoint /path/to/pi3.safetensors \
-      --dataset kitti360 --data-root /data/KITTI-360 --num-clips 200 --seed 0
+      --dataset waymo --data-root /data/waymo_v2/validation \
+      --clip-list eval/clips/waymo_200.txt
 """
 
 from __future__ import annotations
@@ -49,19 +50,24 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Iterator
 
 import numpy as np
 import torch
+from PIL import Image
 from tqdm import tqdm
 
 from lfg.checkpoint import load_model_from_checkpoint
 from lfg.inference import predict_window
-from lfg.io import load_frame, preprocess_frames
+from lfg.io import Frame, preprocess_frames
 
 CLIP_LENGTH = 6
 IGNORE_LABEL = 255
+WAYMO_FRONT_CAMERA = 1
+# OpenCV camera axes (x-right, y-down, z-forward) expressed in Waymo's (x-fwd, y-left, z-up).
+OPENCV_TO_WAYMO_CAMERA = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]], float)
 
 # Whether class averages span every class or only those present in a frame.
 SEG_AVERAGE = {"over_all_classes": False}
@@ -88,7 +94,8 @@ class Clip:
     """One evaluation clip: frame images plus a lazy loader for ground-truth depth."""
 
     name: str
-    image_paths: list[Path]
+    load_images: Callable[[], list[np.ndarray]]
+    """load_images() -> CLIP_LENGTH RGB frames as uint8 arrays."""
     load_depth: Callable[[int, int, int], np.ndarray]
     """load_depth(frame_slot, out_height, out_width) -> sparse metric depth, NaN where absent."""
     load_poses: Callable[[], np.ndarray] | None = None
@@ -255,6 +262,131 @@ def _sparse_depth_map(
     return canvas
 
 
+@lru_cache(maxsize=6)
+def _waymo_arrow(root: Path, component: str, segment: str, columns: tuple[str, ...]):
+    """One component of one Waymo segment, left in Arrow.
+
+    Cached and never converted wholesale: the LiDAR columns hold millions of values, so rows
+    are selected first and only those are turned into numpy.
+    """
+    import pyarrow.parquet as pq
+
+    return pq.read_table(root / component / f"{segment}.parquet", columns=list(columns))
+
+
+def _waymo_at(table, stamp: int):
+    """The rows of a component belonging to one frame."""
+    import pyarrow.compute as pc
+
+    return table.filter(pc.equal(table.column("key.frame_timestamp_micros"), stamp))
+
+
+def _waymo_front_calibration(root: Path, segment: str):
+    """Intrinsics, image size and camera-to-vehicle pose (OpenCV axes) for the front camera."""
+    prefix = "[CameraCalibrationComponent]"
+    table = _waymo_arrow(root, "camera_calibration", segment, (
+        "key.camera_name", f"{prefix}.intrinsic.f_u", f"{prefix}.intrinsic.f_v",
+        f"{prefix}.intrinsic.c_u", f"{prefix}.intrinsic.c_v",
+        f"{prefix}.width", f"{prefix}.height", f"{prefix}.extrinsic.transform",
+    )).to_pydict()
+    row = table["key.camera_name"].index(WAYMO_FRONT_CAMERA)
+    intrinsics = tuple(float(table[f"{prefix}.intrinsic.{k}"][row]) for k in ("f_u", "f_v", "c_u", "c_v"))
+    size = (int(table[f"{prefix}.width"][row]), int(table[f"{prefix}.height"][row]))
+    vehicle_from_camera = np.asarray(table[f"{prefix}.extrinsic.transform"][row], float).reshape(4, 4)
+    # Waymo camera axes are x-forward/y-left/z-up; rotate so the pose uses OpenCV axes.
+    vehicle_from_camera[:3, :3] = vehicle_from_camera[:3, :3] @ OPENCV_TO_WAYMO_CAMERA
+    return intrinsics, size, vehicle_from_camera
+
+
+def _waymo_depth(root, segment, stamp, camera_size, intrinsics, out_hw, max_depth) -> np.ndarray:
+    """Camera-frame depth for one frame, from the LiDAR range images and their projections."""
+    lidar = _waymo_at(_waymo_arrow(root, "lidar", segment, (
+        "key.frame_timestamp_micros",
+        "[LiDARComponent].range_image_return1.values",
+        "[LiDARComponent].range_image_return1.shape")), stamp)
+    projection = _waymo_at(_waymo_arrow(root, "lidar_camera_projection", segment, (
+        "key.frame_timestamp_micros",
+        "[LiDARCameraProjectionComponent].range_image_return1.values",
+        "[LiDARCameraProjectionComponent].range_image_return1.shape")), stamp)
+
+    focal_u, focal_v, centre_u, centre_v = intrinsics
+    width, height = camera_size
+    rows, cols, depths = [], [], []
+    for laser in range(min(lidar.num_rows, projection.num_rows)):
+        shape = np.asarray(lidar.column(2)[laser].values)
+        ranges = np.asarray(lidar.column(1)[laser].values).reshape(tuple(shape))[:, :, 0]
+        proj = np.asarray(projection.column(1)[laser].values).reshape(
+            tuple(np.asarray(projection.column(2)[laser].values)))
+        for offset in (0, 3):     # a return may project into two cameras
+            hit = (proj[:, :, offset] == WAYMO_FRONT_CAMERA) & (ranges > 0)
+            if not hit.any():
+                continue
+            u = proj[:, :, offset + 1][hit].astype(float)
+            v = proj[:, :, offset + 2][hit].astype(float)
+            # range is measured along the ray, so convert it to a camera-frame z
+            x, y = (u - centre_u) / focal_u, (v - centre_v) / focal_v
+            depths.append(ranges[hit] / np.sqrt(x * x + y * y + 1.0))
+            rows.append(v)
+            cols.append(u)
+
+    if not depths:
+        return np.full(out_hw, np.nan, np.float32)
+    depth = np.concatenate(depths)
+    keep = depth <= max_depth
+    return _sparse_depth_map(np.concatenate(rows)[keep], np.concatenate(cols)[keep],
+                             depth[keep], (height, width), out_hw)
+
+
+def waymo_clips(root: Path, max_depth: float) -> Iterator[Clip]:
+    """Waymo Open Dataset v2, read from the released parquet components.
+
+    Layout: <root>/{camera_image,lidar,lidar_camera_projection,camera_calibration,
+    vehicle_pose}/<segment>.parquet -- one split directory exactly as distributed.
+    """
+    import io as _io
+
+    components = ("lidar", "lidar_camera_projection", "camera_calibration", "vehicle_pose")
+    for path in sorted((root / "camera_image").glob("*.parquet")):
+        segment = path.stem
+        if not all((root / c / f"{segment}.parquet").exists() for c in components):
+            continue
+        intrinsics, camera_size, vehicle_from_camera = _waymo_front_calibration(root, segment)
+        images = _waymo_arrow(root, "camera_image", segment,
+                              ("key.frame_timestamp_micros", "key.camera_name",
+                               "[CameraImageComponent].image"))
+        import pyarrow.compute as pc
+        front = images.filter(pc.equal(images.column("key.camera_name"), WAYMO_FRONT_CAMERA))
+        stamps = sorted(front.column("key.frame_timestamp_micros").to_pylist())
+
+        for start in range(len(stamps) - CLIP_LENGTH + 1):
+            window = tuple(stamps[start : start + CLIP_LENGTH])
+
+            def load_images(window=window, segment=segment) -> list[np.ndarray]:
+                table = _waymo_arrow(root, "camera_image", segment,
+                                     ("key.frame_timestamp_micros", "key.camera_name",
+                                      "[CameraImageComponent].image"))
+                table = table.filter(pc.equal(table.column("key.camera_name"), WAYMO_FRONT_CAMERA))
+                return [np.asarray(Image.open(_io.BytesIO(
+                    _waymo_at(table, stamp).column("[CameraImageComponent].image")[0].as_py()
+                )).convert("RGB")) for stamp in window]
+
+            def load_depth(slot, out_h, out_w, window=window, segment=segment) -> np.ndarray:
+                return _waymo_depth(root, segment, window[slot], camera_size, intrinsics,
+                                    (out_h, out_w), max_depth)
+
+            def load_poses(window=window, segment=segment) -> np.ndarray:
+                table = _waymo_arrow(root, "vehicle_pose", segment,
+                                     ("key.frame_timestamp_micros",
+                                      "[VehiclePoseComponent].world_from_vehicle.transform")).to_pydict()
+                by_time = dict(zip(table["key.frame_timestamp_micros"],
+                                   table["[VehiclePoseComponent].world_from_vehicle.transform"]))
+                return np.stack([np.asarray(by_time[s], float).reshape(4, 4) @ vehicle_from_camera
+                                 for s in window])
+
+            yield Clip(name=f"{segment}:{window[0]}", load_images=load_images,
+                       load_depth=load_depth, load_poses=load_poses)
+
+
 def _kitti360_calibration(root: Path) -> tuple[np.ndarray, np.ndarray]:
     """Return (P_rect_00, T_cam0_from_velo) for the left perspective camera."""
     perspective = {}
@@ -304,8 +436,6 @@ def kitti360_clips(root: Path, max_depth: float) -> Iterator[Clip]:
                 velodyne_dir=velodyne_dir,
                 has_lidar=has_lidar,
             ) -> np.ndarray:
-                from PIL import Image
-
                 if not has_lidar:  # semantics-only run
                     return np.full((out_h, out_w), np.nan, dtype=np.float32)
 
@@ -331,8 +461,6 @@ def kitti360_clips(root: Path, max_depth: float) -> Iterator[Clip]:
             def load_labels(
                 slot: int, out_h: int, out_w: int, window=window, semantic_dir=semantic_dir
             ) -> np.ndarray:
-                from PIL import Image
-
                 label_path = semantic_dir / f"{window[slot]:010d}.png"
                 label_ids = np.asarray(
                     Image.open(label_path).resize((out_w, out_h), Image.NEAREST)
@@ -365,14 +493,16 @@ def kitti360_clips(root: Path, max_depth: float) -> Iterator[Clip]:
 
             yield Clip(
                 name=f"{drive.name}:{window[0]:010d}",
-                image_paths=[image_dir / f"{i:010d}.png" for i in window],
+                load_images=(lambda window=window, image_dir=image_dir: [
+                    np.asarray(Image.open(image_dir / f"{i:010d}.png").convert("RGB")) for i in window
+                ]),
                 load_depth=load_depth,
                 load_poses=load_poses if pose_file.exists() else None,
                 load_labels=load_labels if semantic_dir.is_dir() else None,
             )
 
 
-ADAPTERS = {"kitti360": kitti360_clips}
+ADAPTERS = {"kitti360": kitti360_clips, "waymo": waymo_clips}
 
 
 # --------------------------------------------------------------------------------------
@@ -405,6 +535,12 @@ def load_pi3_baseline(weights: str, device: str):
     return model.eval().to(device)
 
 
+def as_frames(images: list[np.ndarray]) -> list[Frame]:
+    """Wrap decoded RGB arrays in the Frame records the preprocessing expects."""
+    return [Frame(rgb=image, source=f"frame_{index}", frame_index=index)
+            for index, image in enumerate(images)]
+
+
 NEEDS_CHECKPOINT = {"lfg", "pi3"}
 
 
@@ -422,13 +558,13 @@ def build_predictor(args: argparse.Namespace):
     if args.model == "pi3":
         model = load_pi3_baseline(args.checkpoint, args.device)
 
-        def predict(paths: list[Path]) -> dict:
-            frames = [load_frame(path, slot) for slot, path in enumerate(paths)]
-            images = preprocess_frames(
-                frames, target_size=args.target_size, mode=args.resize_mode, keep_ratio=False, patch_size=14
+        def predict(images: list[np.ndarray]) -> dict:
+            batch = preprocess_frames(
+                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
+                keep_ratio=False, patch_size=14,
             )
             with torch.inference_mode(), torch.amp.autocast("cuda", dtype=torch.bfloat16):
-                return model(images.unsqueeze(0).to(args.device))
+                return model(batch.unsqueeze(0).to(args.device))
 
         return predict, CLIP_LENGTH // 2, {"model": "pi3", "frames_seen": CLIP_LENGTH}
 
@@ -438,15 +574,14 @@ def build_predictor(args: argparse.Namespace):
         mean = torch.tensor(processor.image_mean).view(1, 3, 1, 1)
         std = torch.tensor(processor.image_std).view(1, 3, 1, 1)
 
-        def predict(paths: list[Path]) -> dict:
+        def predict(images: list[np.ndarray]) -> dict:
             # Fed at the same input resolution as LFG so the comparison is like for like,
             # rather than at the processor's much larger default.
-            frames = [load_frame(path, slot) for slot, path in enumerate(paths)]
-            images = preprocess_frames(
-                frames, target_size=args.target_size, mode=args.resize_mode,
+            batch = preprocess_frames(
+                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
                 keep_ratio=False, patch_size=14,
             )
-            pixels = ((images - mean) / std).to(args.device)
+            pixels = ((batch - mean) / std).to(args.device)
             with torch.inference_mode():
                 logits = model(pixel_values=pixels).logits      # (S, 19, h, w)
             classes = torch.full(
@@ -461,7 +596,7 @@ def build_predictor(args: argparse.Namespace):
     if args.model == "static":
         # No network: the observed frames' labels are carried forward unchanged, which is
         # the paper's "static" reference for how much of the future is simply the present.
-        def predict(paths: list[Path]) -> dict:
+        def predict(images: list[np.ndarray]) -> dict:
             return {"static": True}
 
         return predict, CLIP_LENGTH // 2, {"model": "static", "frames_seen": CLIP_LENGTH // 2}
@@ -471,17 +606,17 @@ def build_predictor(args: argparse.Namespace):
 
         model = load_vggt_baseline(args.device)
 
-        def predict(paths: list[Path]) -> dict:
-            frames = [load_frame(path, slot) for slot, path in enumerate(paths)]
-            images = preprocess_frames(
-                frames, target_size=args.target_size, mode=args.resize_mode, keep_ratio=False, patch_size=14
+        def predict(images: list[np.ndarray]) -> dict:
+            batch = preprocess_frames(
+                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
+                keep_ratio=False, patch_size=14,
             ).unsqueeze(0).to(args.device)
             with torch.inference_mode(), torch.amp.autocast("cuda", dtype=torch.bfloat16):
-                outputs = model(images)
+                outputs = model(batch)
             depth = outputs["depth"][..., 0]                        # (1, S, H, W)
             points = torch.zeros(*depth.shape, 3, device=depth.device)
             points[..., 2] = depth
-            extrinsic, _ = pose_encoding_to_extri_intri(outputs["pose_enc"], images.shape[-2:])
+            extrinsic, _ = pose_encoding_to_extri_intri(outputs["pose_enc"], batch.shape[-2:])
             square = torch.eye(4, device=depth.device).repeat(1, extrinsic.shape[1], 1, 1)
             square[:, :, :3, :4] = extrinsic                        # world-to-camera
             return {"local_points": points, "camera_poses": torch.linalg.inv(square)}
@@ -495,10 +630,9 @@ def build_predictor(args: argparse.Namespace):
             f"only those are scored against the {CLIP_LENGTH}-frame clips."
         )
 
-    def predict(paths: list[Path]) -> dict:
-        frames = [load_frame(path, slot) for slot, path in enumerate(paths[: config.m])]
+    def predict(images: list[np.ndarray]) -> dict:
         return predict_window(
-            model, frames, config, device=args.device,
+            model, as_frames(images[: config.m]), config, device=args.device,
             target_size=args.target_size, resize_mode=args.resize_mode, keep_ratio=False,
         )
 
@@ -542,10 +676,12 @@ def evaluate(args: argparse.Namespace) -> dict:
     predict, future_start, model_info = build_predictor(args)
 
     root = Path(args.data_root)
-    missing = [name for name in ("data_2d_raw", "calibration") if not (root / name).is_dir()]
+    expected = {"kitti360": ("data_2d_raw", "calibration"),
+                "waymo": ("camera_image", "lidar", "camera_calibration")}[args.dataset]
+    missing = [name for name in expected if not (root / name).is_dir()]
     if missing:
         raise SystemExit(
-            f"{root} does not look like a KITTI-360 root: missing {', '.join(missing)}. "
+            f"{root} does not look like a {args.dataset} root: missing {', '.join(missing)}. "
             "See the Evaluation section of the README for the expected layout."
         )
     clips = list(ADAPTERS[args.dataset](root, args.max_depth))
@@ -575,17 +711,16 @@ def evaluate(args: argparse.Namespace) -> dict:
                                              for split in ("overall", "predicted")
                                              for metric in ("pa", "miou", "mdice", "fwiou"))}
     for clip in tqdm(clips, desc="evaluating"):
-        outputs = predict(clip.image_paths)
+        images = clip.load_images()
+        outputs = predict(images)
         if "local_points" in outputs:
             predicted = outputs["local_points"][0].float().cpu().numpy()[..., 2]
             slots = min(CLIP_LENGTH, predicted.shape[0])
             height, width = predicted.shape[1], predicted.shape[2]
         else:  # segmentation-only baselines: score on the same grid the models use
-            from PIL import Image
-
             predicted = None
             slots = CLIP_LENGTH
-            source_w, source_h = Image.open(clip.image_paths[0]).size
+            source_h, source_w = images[0].shape[:2]
             width = args.target_size
             height = max(14, round(source_h * (width / source_w) / 14) * 14)
 
