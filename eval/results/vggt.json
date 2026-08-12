@@ -1,0 +1,101 @@
+{
+  "checkpoint": "",
+  "dataset": "kitti360",
+  "clips_scored": 200,
+  "clips_requested": 200,
+  "seed": null,
+  "clip_list": "/tmp/claude-4011/-mnt-data-quentin-herau/2b6836a9-901a-49c8-a1fd-3a2fc0350bdf/scratchpad/final_k360.txt",
+  "alignment": "per-clip",
+  "max_depth": 80.0,
+  "model": {
+    "model": "vggt",
+    "frames_seen": 6
+  },
+  "metrics": {
+    "overall_absrel": {
+      "mean": 0.10271620643635591,
+      "std": 0.043660166754448414,
+      "count": 200
+    },
+    "overall_rmse": {
+      "mean": 2.8800365097324048,
+      "std": 1.0817587039170473,
+      "count": 200
+    },
+    "predicted_absrel": {
+      "mean": 0.09929716160520911,
+      "std": 0.042306436209819956,
+      "count": 200
+    },
+    "predicted_rmse": {
+      "mean": 2.9079013845324515,
+      "std": 1.1134572997216312,
+      "count": 200
+    },
+    "observed_absrel": {
+      "mean": 0.1061352512675027,
+      "std": 0.04693300909828314,
+      "count": 200
+    },
+    "observed_rmse": {
+      "mean": 2.8521716349323594,
+      "std": 1.076024638113253,
+      "count": 200
+    },
+    "trajectory_ate": {
+      "mean": 0.027997888851084757,
+      "std": 0.01590800902931848,
+      "count": 200
+    },
+    "trajectory_rot": {
+      "mean": 0.3611426528082808,
+      "std": 0.3509550922090578,
+      "count": 200
+    },
+    "trajectory_trans": {
+      "mean": 0.2549935284407326,
+      "std": 0.06783986704053441,
+      "count": 200
+    },
+    "overall_pa": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_miou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_mdice": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_fwiou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_pa": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_miou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_mdice": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_fwiou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    }
+  }
+}

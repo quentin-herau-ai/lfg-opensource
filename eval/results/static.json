@@ -1,0 +1,101 @@
+{
+  "checkpoint": "",
+  "dataset": "kitti360",
+  "clips_scored": 0,
+  "clips_requested": 200,
+  "seed": null,
+  "clip_list": "/tmp/claude-4011/-mnt-data-quentin-herau/2b6836a9-901a-49c8-a1fd-3a2fc0350bdf/scratchpad/final_k360.txt",
+  "alignment": "per-clip",
+  "max_depth": 80.0,
+  "model": {
+    "model": "static",
+    "frames_seen": 3
+  },
+  "metrics": {
+    "overall_absrel": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_rmse": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_absrel": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_rmse": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "observed_absrel": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "observed_rmse": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "trajectory_ate": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "trajectory_rot": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "trajectory_trans": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_pa": {
+      "mean": 0.9449650719759868,
+      "std": 0.03907664541963791,
+      "count": 200
+    },
+    "overall_miou": {
+      "mean": 0.7851713109310487,
+      "std": 0.10593442847773973,
+      "count": 200
+    },
+    "overall_mdice": {
+      "mean": 0.8425597357033872,
+      "std": 0.09970560802562987,
+      "count": 200
+    },
+    "overall_fwiou": {
+      "mean": 0.9065830158877037,
+      "std": 0.05924107367768771,
+      "count": 200
+    },
+    "predicted_pa": {
+      "mean": 0.9278164168676841,
+      "std": 0.05302674579870519,
+      "count": 200
+    },
+    "predicted_miou": {
+      "mean": 0.7310818993752861,
+      "std": 0.13161196407752687,
+      "count": 200
+    },
+    "predicted_mdice": {
+      "mean": 0.8024827408605045,
+      "std": 0.12490239788736776,
+      "count": 200
+    },
+    "predicted_fwiou": {
+      "mean": 0.8786383782086413,
+      "std": 0.07975310321559517,
+      "count": 200
+    }
+  }
+}

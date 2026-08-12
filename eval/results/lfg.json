@@ -1,0 +1,112 @@
+{
+  "checkpoint": "/mnt/data/quentin.herau/hf_release_staging/lfg_sv/lfg_seg_motion_m3n3.pt",
+  "dataset": "kitti360",
+  "clips_scored": 200,
+  "clips_requested": 200,
+  "seed": null,
+  "clip_list": "/tmp/claude-4011/-mnt-data-quentin-herau/2b6836a9-901a-49c8-a1fd-3a2fc0350bdf/scratchpad/final_k360.txt",
+  "alignment": "per-clip",
+  "max_depth": 80.0,
+  "model": {
+    "model": "lfg",
+    "m": 3,
+    "n": 3,
+    "encoder_name": "dinov2",
+    "decoder_size": "large",
+    "ar_n_heads": 8,
+    "ar_n_layers": 4,
+    "ar_dropout": 0.1,
+    "use_segmentation_head": true,
+    "segmentation_num_classes": 7,
+    "use_motion_head": true,
+    "use_flow_head": false,
+    "point_head_type": "linear"
+  },
+  "metrics": {
+    "overall_absrel": {
+      "mean": 0.10576423614285886,
+      "std": 0.04694383246922188,
+      "count": 200
+    },
+    "overall_rmse": {
+      "mean": 2.9761167908708255,
+      "std": 1.173195728421864,
+      "count": 200
+    },
+    "predicted_absrel": {
+      "mean": 0.10716977610563239,
+      "std": 0.045218369965963894,
+      "count": 200
+    },
+    "predicted_rmse": {
+      "mean": 3.0909534764289854,
+      "std": 1.228108541673108,
+      "count": 200
+    },
+    "observed_absrel": {
+      "mean": 0.10435869618008535,
+      "std": 0.050494567027172914,
+      "count": 200
+    },
+    "observed_rmse": {
+      "mean": 2.8612801053126655,
+      "std": 1.147780085641837,
+      "count": 200
+    },
+    "trajectory_ate": {
+      "mean": 0.10513592850381884,
+      "std": 0.07731571546196045,
+      "count": 200
+    },
+    "trajectory_rot": {
+      "mean": 0.6038371814946584,
+      "std": 0.48887145268849175,
+      "count": 200
+    },
+    "trajectory_trans": {
+      "mean": 0.5444962718450532,
+      "std": 0.12461799517016363,
+      "count": 200
+    },
+    "overall_pa": {
+      "mean": 0.9319608516552824,
+      "std": 0.03571016632454521,
+      "count": 200
+    },
+    "overall_miou": {
+      "mean": 0.7090305403945344,
+      "std": 0.11798226624401609,
+      "count": 200
+    },
+    "overall_mdice": {
+      "mean": 0.7743022994822008,
+      "std": 0.1139428102632637,
+      "count": 200
+    },
+    "overall_fwiou": {
+      "mean": 0.8843152132301205,
+      "std": 0.053191196616852586,
+      "count": 200
+    },
+    "predicted_pa": {
+      "mean": 0.9253775222378284,
+      "std": 0.03743440290639011,
+      "count": 200
+    },
+    "predicted_miou": {
+      "mean": 0.6999836527920971,
+      "std": 0.12536109936438333,
+      "count": 200
+    },
+    "predicted_mdice": {
+      "mean": 0.7712009904337666,
+      "std": 0.12217347494608902,
+      "count": 200
+    },
+    "predicted_fwiou": {
+      "mean": 0.8730331612991776,
+      "std": 0.0559227724034048,
+      "count": 200
+    }
+  }
+}

@@ -1,48 +1,80 @@
-# LFG Open Source
+<p align="center">
+  <img src="assets/brand/icon.svg" width="96" alt="Applied Intuition"/>
+</p>
 
-[![arXiv](https://img.shields.io/badge/arXiv-2602.22091-b31b1b.svg)](https://arxiv.org/abs/2602.22091) [![Project Page](https://img.shields.io/badge/Project-Page-blue.svg)](https://lfg-ai.github.io/) [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Model-yellow)](https://huggingface.co/AppliedIntuitionResearch/LFG)
+<h1 align="center">LFG: Learning to Drive is a Free Gift — Large-Scale Label-Free Autonomy Pretraining from Unposed In-The-Wild Videos</h1>
 
-- **Paper:** https://arxiv.org/abs/2602.22091
-- **Project page:** https://lfg-ai.github.io/
-- **Pretrained checkpoint:** https://huggingface.co/AppliedIntuitionResearch/LFG
+<p align="center">
+  <a href="https://arxiv.org/abs/2602.22091"><img src="https://img.shields.io/badge/arXiv-2602.22091-b31b1b.svg" alt="arXiv"></a>
+  <a href="https://lfg-ai.github.io/"><img src="https://img.shields.io/badge/Project-Website-blue" alt="Project Page"></a>
+  <a href="https://huggingface.co/AppliedIntuitionResearch/LFG"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-Checkpoints-yellow" alt="Hugging Face"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-green.svg" alt="License"></a>
+</p>
 
-This repository contains the open-source local inference code path for LFG. It loads a trained `LFG` checkpoint and runs it on either a video file or an ordered sequence of RGB images.
+<p align="center">
+  Matthew Strong, Wei-Jer Chang, Quentin Herau, Jiezhi Yang, Yihan Hu, Chensheng Peng, Wei Zhan <br>
+  <b>CVPR 2026</b>
+</p>
 
-This public version runs local inference only. It loads local checkpoint files and local video/image inputs.
+LFG learns a unified pseudo-4D representation — 3D point maps, camera poses, semantic layouts,
+confidence and motion masks — from unposed, unlabelled dashcam video, supervised entirely by
+frozen teacher models rather than human annotation. Given three observed frames it predicts all
+of these for the observed frames *and* three future ones. This repository contains the local
+inference path and the evaluation harness used for the paper's KITTI-360 benchmarks.
 
-All input and checkpoint arguments must be ordinary filesystem paths on the same machine. URI-style locations are rejected by the CLI.
+## 🔥 News
 
-## Installation
+- **[2026-08-12]** — Evaluation code released.
+- **[2026-07-13]** — Checkpoint released on [Hugging Face](https://huggingface.co/AppliedIntuitionResearch/LFG).
+- **[2026-06-14]** — Inference code released.
+- **[2026-02-25]** — Paper on [arXiv](https://arxiv.org/abs/2602.22091); accepted at CVPR 2026.
+
+## 📋 Table of Contents
+
+- [Installation](#️-installation)
+- [Checkpoints](#-checkpoints)
+- [Getting Started](#-getting-started)
+- [Training](#️-training)
+- [Evaluation](#-evaluation)
+- [Results](#-results)
+- [Citation](#-citation)
+- [License](#️-license)
+- [Acknowledgments](#-acknowledgments)
+
+## 🛠️ Installation
 
 ```bash
+git clone https://github.com/Applied-Intuition-Open-Source/LFG.git
+cd LFG
 conda create -n lfg-infer python=3.10 -y
 conda activate lfg-infer
-
-# Install PyTorch for your CUDA/CPU platform first if needed:
-# https://pytorch.org/get-started/locally/
-
 pip install -r requirements.txt
-
-# Optional: install the CLI entry point.
-pip install -e .
+pip install -e .          # optional, installs the lfg-infer entry point
 ```
 
-By default the CLI uses `--device auto`, which selects CUDA when a local GPU is available and otherwise falls back to CPU. You can force a device with `--device cuda`, `--device cuda:0`, or `--device cpu`.
+**Requirements:** PyTorch 2.4+. A CUDA GPU is recommended but not required — the CLI falls back
+to CPU. Install PyTorch for your platform first if the default wheel does not match your driver.
 
-## Checkpoint
+**External assets:** the checkpoint (below, from Hugging Face) and, for evaluation only, the
+KITTI-360 dataset (see [Evaluation](#-evaluation)). Baseline comparisons additionally need their
+upstream packages, listed in that section.
 
-The pretrained LFG checkpoint is available on Hugging Face at [AppliedIntuitionResearch/LFG](https://huggingface.co/AppliedIntuitionResearch/LFG) (CC BY-NC 4.0). It predicts dense depth / 3D points, camera pose, per-point confidence, object segmentation, and per-pixel motion. Given 3 observed frames it predicts all outputs for those frames plus 3 future frames. Download it locally:
+## 📦 Checkpoints
+
+Pretrained weights are hosted on the [Applied Intuition Hugging Face organization](https://huggingface.co/AppliedIntuitionResearch/LFG).
+
+| Model | Description | License | Download |
+|---|---|---|---|
+| `lfg_seg_motion_m3n3.pt` | 1.22B params. 3 observed frames in, 3 observed + 3 future out. Depth/points, camera pose, confidence, segmentation (7 classes), motion. | CC BY-NC 4.0 | [Hugging Face](https://huggingface.co/AppliedIntuitionResearch/LFG) |
 
 ```bash
 pip install -U huggingface_hub
 hf download AppliedIntuitionResearch/LFG lfg_seg_motion_m3n3.pt --local-dir checkpoints
 ```
 
-The loader reads the model configuration from checkpoint metadata and state-dict keys, builds the matching model, and loads the weights locally.
+## 🚀 Getting Started
 
-Point maps are predicted up to an unknown scale and shift. Align predictions to a metric reference (for example a least-squares scale-and-shift fit against ground-truth depth) before computing metric errors.
-
-## Run On A Video
+### Run on a video
 
 ```bash
 python infer.py /path/to/video.mp4 \
@@ -69,7 +101,7 @@ python infer.py /path/to/video.mp4 \
   --output-dir outputs/video_dense
 ```
 
-## Run On Images
+### Run on images
 
 Directory input:
 
@@ -89,7 +121,7 @@ python infer.py "/path/to/frames/*.jpg" \
 
 Image files are sorted with natural numeric ordering, so `frame_2.jpg` comes before `frame_10.jpg`.
 
-## Outputs
+## 📤 Outputs
 
 Each model window is written under:
 
@@ -120,6 +152,139 @@ outputs/.../
 
 For long videos or image sequences, inference streams sampled frames through sliding windows instead of decoding the full input into memory first. The first `M` predictions correspond to the input/history frames for that window; the next `N` predictions are autoregressive future predictions. The JSON metadata records the source frame indices and which slots are padded for short tail windows.
 
-## Acknowledgments
+## 🏋️ Training
 
-LFG builds on the excellent [Pi3](https://github.com/yyfz/Pi3) project, whose model code is bundled under `Pi3/`. We thank the Pi3 authors for releasing their work. Pi3 in turn builds on [DINOv2](https://github.com/facebookresearch/dinov2) (Meta Platforms), bundled under `Pi3/pi3/models/dinov2/`.
+Training code is not part of this release. The models were pretrained on unlabelled dashcam
+video with frozen teachers providing pseudo-supervision; see the paper for the recipe.
+
+## 📊 Evaluation
+
+`evaluate.py` scores depth, semantic segmentation and trajectory on KITTI-360, following the
+protocol described in the paper. Each clip is six consecutive frames; LFG is given the first three and predicts
+all six, so results are reported over all frames (`overall`) and over the three it had to
+predict (`predicted`). Baselines that do not predict the future are given all six frames.
+
+### Data
+
+The shipped clip list uses two KITTI-360 sequences: **`2013_05_28_drive_0000_sync`** and
+**`2013_05_28_drive_0002_sync`**. Download them plus the calibration, poses and semantic
+labels (~50 GB):
+
+```bash
+BASE=https://s3.eu-central-1.amazonaws.com/avg-projects/KITTI-360
+mkdir -p KITTI-360 && cd KITTI-360
+
+for SEQ in 2013_05_28_drive_0000_sync 2013_05_28_drive_0002_sync; do
+  curl -O $BASE/data_2d_raw/${SEQ}_image_00.zip && unzip -q ${SEQ}_image_00.zip -d data_2d_raw
+  curl -O $BASE/data_3d_raw/${SEQ}_velodyne.zip && unzip -q ${SEQ}_velodyne.zip -d data_3d_raw
+done
+
+curl -O $BASE/384509ed5413ccc81328cf8c55cc6af078b8c444/calibration.zip       && unzip -q calibration.zip
+curl -O $BASE/89a6bae3c8a6f789e12de4807fc1e8fdcf182cf4/data_poses.zip        && unzip -q data_poses.zip
+curl -O $BASE/ed180d24c0a144f2f1ac71c2c655a3e986517ed8/data_2d_semantics.zip && unzip -q data_2d_semantics.zip
+```
+
+This produces the standard layout: `data_2d_raw/`, `data_3d_raw/`, `data_poses/`,
+`data_2d_semantics/` and `calibration/`.
+
+### Usage
+
+```bash
+python evaluate.py \
+  --checkpoint checkpoints/lfg_seg_motion_m3n3.pt \
+  --dataset kitti360 --data-root /path/to/KITTI-360 \
+  --clip-list eval/clips/kitti360_200.txt \
+  --output results.json
+```
+
+Use `--num-clips 200 --seed 0` to sample a fresh set instead of the fixed list, and
+`--save-clip-list` to record it. Baselines run through the same harness via `--model`:
+
+| `--model` | Requires |
+|---|---|
+| `lfg` (default) | this repo |
+| `pi3` | [Pi3](https://github.com/yyfz/Pi3) on `PYTHONPATH`, `--checkpoint` its weights |
+| `vggt` | `pip install git+https://github.com/facebookresearch/vggt.git` |
+| `segformer` | `transformers` |
+| `static` | nothing; carries the last observed frame's labels forward |
+
+### Results
+
+200 clips, per-clip scale-and-shift alignment, 518-wide inputs. Raw output in
+`eval/results/`.
+
+**Depth** (AbsRel, RMSE in metres, against Velodyne)
+
+| Model | Frames seen | AbsRel | RMSE | AbsRel (pred.) | RMSE (pred.) |
+|---|---|---|---|---|---|
+| Pi3 | 6 | 0.091 ± 0.048 | 2.75 ± 1.12 | 0.092 ± 0.049 | 2.78 ± 1.15 |
+| VGGT | 6 | 0.103 ± 0.044 | 2.88 ± 1.08 | 0.099 ± 0.042 | 2.91 ± 1.11 |
+| **LFG** | 3 | 0.106 ± 0.047 | 2.98 ± 1.17 | 0.107 ± 0.045 | 3.09 ± 1.23 |
+
+**Trajectory** (ATE after similarity alignment; rotation and translation error relative to
+the first frame)
+
+| Model | Frames seen | ATE (m) | Rot (deg) | Trans (m) |
+|---|---|---|---|---|
+| Pi3 | 6 | 0.02 ± 0.01 | 0.27 ± 0.25 | 0.24 ± 0.07 |
+| VGGT | 6 | 0.03 ± 0.02 | 0.36 ± 0.35 | 0.25 ± 0.07 |
+| **LFG** | 3 | 0.11 ± 0.08 | 0.60 ± 0.49 | 0.54 ± 0.12 |
+
+**Semantics** (seven classes, averaged per frame over the classes present)
+
+| Model | Frames seen | Split | PA | mIoU | mDice | FW-IoU |
+|---|---|---|---|---|---|---|
+| Static | – | predicted | 0.928 | 0.731 | 0.802 | 0.879 |
+| SegFormer | 6 | overall | 0.952 | 0.708 | 0.764 | 0.914 |
+| SegFormer | 6 | predicted | 0.952 | 0.707 | 0.762 | 0.913 |
+| **LFG** | 3 | overall | 0.932 | 0.709 | 0.774 | 0.884 |
+| **LFG** | 3 | predicted | 0.925 | 0.700 | 0.771 | 0.873 |
+
+Seeing only three frames, LFG stays within ~0.2 m RMSE of Pi3 with all six, and scores its
+predicted frames as well as the ones it observed.
+
+### Conventions
+
+Depth is aligned to ground truth with a least-squares scale and shift, fitted once per clip
+to match the per-sequence normalisation used in training; `--alignment per-frame` fits each
+frame separately and shifts AbsRel by under 0.01. Segmentation class averages cover the
+classes present in each frame; `--seg-average all` averages over all seven with absent
+classes scoring zero, and `--seg-metrics dataset` accumulates one confusion matrix instead.
+Ground truth beyond `--max-depth` (80 m) is ignored.
+
+## 📈 Results
+
+See [Evaluation](#-evaluation) for the full tables. Headline: given only three observed frames,
+LFG reaches 0.106 AbsRel / 2.98 m RMSE on KITTI-360 depth — within ~0.2 m RMSE of Pi3 given all
+six — and scores its three predicted frames as well as the ones it observed.
+
+## 📝 Citation
+
+If you find this work useful, please cite:
+
+```bibtex
+@inproceedings{strong2026lfg,
+  title     = {Learning to Drive is a Free Gift: Large-Scale Label-Free Autonomy Pretraining from Unposed In-The-Wild Videos},
+  author    = {Strong, Matthew and Chang, Wei-Jer and Herau, Quentin and Yang, Jiezhi and Hu, Yihan and Peng, Chensheng and Zhan, Wei},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2026}
+}
+```
+
+## ⚖️ License
+
+- **Code:** Apache-2.0 — see [LICENSE](LICENSE).
+- **Model weights:** CC BY-NC 4.0 — see the terms on [Hugging Face](https://huggingface.co/AppliedIntuitionResearch/LFG).
+
+Third-party components under `Pi3/` are licensed separately — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## 🙏 Acknowledgments
+
+This codebase builds on [Pi3](https://github.com/yyfz/Pi3), whose model code is bundled under
+`Pi3/`, and which in turn builds on [DINOv2](https://github.com/facebookresearch/dinov2)
+(Meta Platforms). Evaluation baselines use [VGGT](https://github.com/facebookresearch/vggt) and
+[SegFormer](https://huggingface.co/nvidia/segformer-b5-finetuned-cityscapes-1024-1024). We thank
+the authors for open-sourcing their work.
+
+**Support:** best-effort via GitHub Issues. First response within ~1 week for critical bugs
+blocking installation, inference, or smoke tests.
