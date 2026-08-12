@@ -160,25 +160,15 @@ predict (`predicted`). Baselines that do not predict the future are given all si
 
 ### Data
 
-Evaluation uses [KITTI-360](https://www.cvlibs.net/datasets/kitti-360/). Register on the
-official site and download the following into a single dataset root (~50 GB):
-
-| Item | Provides |
-|---|---|
-| Perspective images (`image_00`) | input frames |
-| Raw Velodyne scans | depth ground truth |
-| Calibrations | camera intrinsics and camera-to-Velodyne extrinsics |
-| Vehicle poses | trajectory ground truth |
-| Semantic labels (2D) | segmentation ground truth |
-
-The clip list shipped with this repo covers two sequences, so those are the only ones you
-need: **`2013_05_28_drive_0000_sync`** and **`2013_05_28_drive_0002_sync`**.
-
-Unpacking the official archives gives the expected layout:
+Evaluation uses [KITTI-360](https://www.cvlibs.net/datasets/kitti-360/). Follow the download
+instructions on the official site to obtain the perspective images, Velodyne scans,
+calibrations, vehicle poses and 2D semantic labels, and unpack them into a single dataset
+root. The clip list shipped with this repo covers sequences `2013_05_28_drive_0000_sync` and
+`2013_05_28_drive_0002_sync`.
 
 ```text
 KITTI-360/
-  calibration/                 perspective.txt, calib_cam_to_velo.txt
+  calibration/
   data_2d_raw/<sequence>/image_00/data_rect/*.png
   data_2d_semantics/train/<sequence>/image_00/semantic/*.png
   data_3d_raw/<sequence>/velodyne_points/data/*.bin
@@ -191,12 +181,12 @@ KITTI-360/
 python evaluate.py \
   --checkpoint checkpoints/lfg_seg_motion_m3n3.pt \
   --dataset kitti360 --data-root /path/to/KITTI-360 \
-  --clip-list eval/clips/kitti360_200.txt \
   --output results.json
 ```
 
-Use `--num-clips 200 --seed 0` to sample a fresh set instead of the fixed list, and
-`--save-clip-list` to record it. Baselines run through the same harness via `--model`:
+The 200 clips behind the tables below are listed in `eval/clips/kitti360_200.txt`, which is
+used by default; point `--clip-list` at your own file (one `<sequence>:<first frame>` per
+line) to score a different set. Baselines run through the same harness via `--model`:
 
 | `--model` | Requires |
 |---|---|

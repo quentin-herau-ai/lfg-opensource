@@ -32,9 +32,9 @@ the frames it had to predict ("predicted").
   trajectory  ATE in metres after a similarity alignment, plus rotation (deg) and
               translation (m) error of each frame's pose relative to the first.
 
-Clips are sampled uniformly at random from every valid window in the dataset. Pass --seed
-for a reproducible sample, or --clip-list to evaluate an exact, named set of clips (see
-eval/clips/); --save-clip-list records whichever set was used.
+Clips come from a list file (see eval/clips/), one `<sequence>:<first frame>` per line, so a
+run is pinned to an exact, inspectable set rather than depending on which sequences happen to
+be present locally.
 
 Examples:
   python evaluate.py --checkpoint checkpoints/lfg_seg_motion_m3n3.pt \
@@ -48,7 +48,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator
@@ -552,21 +551,17 @@ def evaluate(args: argparse.Namespace) -> dict:
     clips = list(ADAPTERS[args.dataset](root, args.max_depth))
     if not clips:
         raise SystemExit(f"No usable {CLIP_LENGTH}-frame clips found under {args.data_root}")
-    if args.clip_list:
-        wanted = [line.strip() for line in Path(args.clip_list).read_text().splitlines() if line.strip()]
-        by_name = {clip.name: clip for clip in clips}
-        missing = [name for name in wanted if name not in by_name]
-        if missing:
-            raise SystemExit(f"{len(missing)} clip(s) from {args.clip_list} not found, e.g. {missing[0]}")
-        clips = [by_name[name] for name in wanted]
-        print(f"{len(clips)} clips from {args.clip_list} | {args.alignment} alignment")
-    else:
-        random.Random(args.seed).shuffle(clips)
-        clips = clips[: args.num_clips]
-        print(f"{len(clips)} clips | {args.alignment} alignment | seed {args.seed}")
-    if args.save_clip_list:
-        Path(args.save_clip_list).write_text("\n".join(clip.name for clip in clips) + "\n")
-        print(f"Wrote clip list to {args.save_clip_list}")
+    wanted = [line.strip() for line in Path(args.clip_list).read_text().splitlines() if line.strip()]
+    by_name = {clip.name: clip for clip in clips}
+    missing = [name for name in wanted if name not in by_name]
+    if missing:
+        sequences = sorted({name.split(":")[0] for name in missing})
+        raise SystemExit(
+            f"{len(missing)} of {len(wanted)} clips in {args.clip_list} are not under "
+            f"{root}. Sequences needed: {', '.join(sequences)}"
+        )
+    clips = [by_name[name] for name in wanted]
+    print(f"{len(clips)} clips from {args.clip_list} | {args.alignment} alignment")
 
     classes = len(CLASS_NAMES)
     confusion = {"overall": np.zeros((classes, classes), np.int64),
@@ -685,8 +680,7 @@ def evaluate(args: argparse.Namespace) -> dict:
         "checkpoint": str(args.checkpoint),
         "dataset": args.dataset,
         "clips_scored": results["overall_absrel"]["count"],
-        "clips_requested": args.num_clips,
-        "seed": None if args.clip_list else args.seed,
+        "clips_evaluated": len(clips),
         "clip_list": args.clip_list,
         "alignment": args.alignment,
         "max_depth": args.max_depth,
@@ -706,15 +700,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--dataset", required=True, choices=sorted(ADAPTERS), help="Dataset adapter.")
     parser.add_argument("--data-root", required=True, help="Dataset root directory.")
-    parser.add_argument("--num-clips", type=int, default=200, help="Clips to sample.")
-    parser.add_argument("--seed", type=int, default=0, help="Seed for clip sampling.")
     parser.add_argument(
         "--clip-list",
-        default=None,
-        help="Evaluate exactly these clips (one name per line) instead of sampling; makes a "
-             "run reproducible across machines and comparable across models.",
+        default="eval/clips/kitti360_200.txt",
+        help="File of clip names to evaluate, one per line, formatted <sequence>:<first frame>. "
+             "Fixing the clips keeps runs comparable across machines and models.",
     )
-    parser.add_argument("--save-clip-list", default=None, help="Write the evaluated clip names here.")
     parser.add_argument(
         "--alignment",
         choices=["per-clip", "per-frame"],
