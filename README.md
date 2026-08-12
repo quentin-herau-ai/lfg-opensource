@@ -160,26 +160,30 @@ predict (`predicted`). Baselines that do not predict the future are given all si
 
 ### Data
 
-The shipped clip list uses two KITTI-360 sequences: **`2013_05_28_drive_0000_sync`** and
-**`2013_05_28_drive_0002_sync`**. Download them plus the calibration, poses and semantic
-labels (~50 GB):
+Evaluation uses [KITTI-360](https://www.cvlibs.net/datasets/kitti-360/). Register on the
+official site and download the following into a single dataset root (~50 GB):
 
-```bash
-BASE=https://s3.eu-central-1.amazonaws.com/avg-projects/KITTI-360
-mkdir -p KITTI-360 && cd KITTI-360
+| Item | Provides |
+|---|---|
+| Perspective images (`image_00`) | input frames |
+| Raw Velodyne scans | depth ground truth |
+| Calibrations | camera intrinsics and camera-to-Velodyne extrinsics |
+| Vehicle poses | trajectory ground truth |
+| Semantic labels (2D) | segmentation ground truth |
 
-for SEQ in 2013_05_28_drive_0000_sync 2013_05_28_drive_0002_sync; do
-  curl -O $BASE/data_2d_raw/${SEQ}_image_00.zip && unzip -q ${SEQ}_image_00.zip -d data_2d_raw
-  curl -O $BASE/data_3d_raw/${SEQ}_velodyne.zip && unzip -q ${SEQ}_velodyne.zip -d data_3d_raw
-done
+The clip list shipped with this repo covers two sequences, so those are the only ones you
+need: **`2013_05_28_drive_0000_sync`** and **`2013_05_28_drive_0002_sync`**.
 
-curl -O $BASE/384509ed5413ccc81328cf8c55cc6af078b8c444/calibration.zip       && unzip -q calibration.zip
-curl -O $BASE/89a6bae3c8a6f789e12de4807fc1e8fdcf182cf4/data_poses.zip        && unzip -q data_poses.zip
-curl -O $BASE/ed180d24c0a144f2f1ac71c2c655a3e986517ed8/data_2d_semantics.zip && unzip -q data_2d_semantics.zip
+Unpacking the official archives gives the expected layout:
+
+```text
+KITTI-360/
+  calibration/                 perspective.txt, calib_cam_to_velo.txt
+  data_2d_raw/<sequence>/image_00/data_rect/*.png
+  data_2d_semantics/train/<sequence>/image_00/semantic/*.png
+  data_3d_raw/<sequence>/velodyne_points/data/*.bin
+  data_poses/<sequence>/cam0_to_world.txt
 ```
-
-This produces the standard layout: `data_2d_raw/`, `data_3d_raw/`, `data_poses/`,
-`data_2d_semantics/` and `calibration/`.
 
 ### Usage
 
