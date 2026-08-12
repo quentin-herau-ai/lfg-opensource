@@ -34,7 +34,6 @@ inference path and the evaluation harness used for the paper's KITTI-360 benchma
 - [Installation](#️-installation)
 - [Checkpoints](#-checkpoints)
 - [Getting Started](#-getting-started)
-- [Training](#️-training)
 - [Evaluation](#-evaluation)
 - [Results](#-results)
 - [Citation](#-citation)
@@ -152,11 +151,6 @@ outputs/.../
 
 For long videos or image sequences, inference streams sampled frames through sliding windows instead of decoding the full input into memory first. The first `M` predictions correspond to the input/history frames for that window; the next `N` predictions are autoregressive future predictions. The JSON metadata records the source frame indices and which slots are padded for short tail windows.
 
-## 🏋️ Training
-
-Training code is not part of this release. The models were pretrained on unlabelled dashcam
-video with frozen teachers providing pseudo-supervision; see the paper for the recipe.
-
 ## 📊 Evaluation
 
 `evaluate.py` scores depth, semantic segmentation and trajectory on KITTI-360, following the
@@ -245,10 +239,10 @@ predicted frames as well as the ones it observed.
 
 ### Conventions
 
-Depth is aligned to ground truth with a least-squares scale and shift, fitted once per clip
-to match the per-sequence normalisation used in training; `--alignment per-frame` fits each
-frame separately and shifts AbsRel by under 0.01. Segmentation class averages cover the
-classes present in each frame; `--seg-average all` averages over all seven with absent
+Depth is aligned to ground truth with a least-squares scale and shift. Point maps are
+predicted up to a single unknown scale and shift per clip, so the fit is made once per clip;
+`--alignment per-frame` fits each frame separately and shifts AbsRel by under 0.01.
+Segmentation class averages cover the classes present in each frame; `--seg-average all` averages over all seven with absent
 classes scoring zero, and `--seg-metrics dataset` accumulates one confusion matrix instead.
 Ground truth beyond `--max-depth` (80 m) is ignored.
 
