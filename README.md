@@ -25,7 +25,7 @@ inference path and the evaluation harness for the KITTI-360 and Waymo benchmarks
 ## 🔥 News
 
 - **[2026-08-13]** — Evaluation code released.
-- **[2026-07-13]** — Checkpoint released on [Hugging Face](https://huggingface.co/AppliedIntuitionResearch/LFG).
+- **[2026-08-10]** — Checkpoint released on [Hugging Face](https://huggingface.co/AppliedIntuitionResearch/LFG).
 - **[2026-06-14]** — Inference code released.
 - **[2026-02-25]** — Paper on [arXiv](https://arxiv.org/abs/2602.22091); accepted at CVPR 2026.
 
