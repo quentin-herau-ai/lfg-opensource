@@ -266,50 +266,69 @@ output, including per-metric standard deviations, is in `eval/results/10hz/` and
 
 **Depth** — AbsRel, RMSE (m) and the share of pixels within a factor of 1.25, against Velodyne.
 
-| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
-|---|---|---|---|---|---|---|---|
-| Pi3 | 6 | 0.091 | 2.65 | 0.928 | 0.093 | 2.73 | 0.923 |
-| VGGT | 6 | 0.100 | 2.78 | 0.919 | 0.091 | 2.87 | 0.917 |
-| DA3 | 6 | 0.120 | 3.12 | 0.879 | 0.121 | 3.17 | 0.877 |
-| **LFG** | 3 | 0.142 | 3.46 | 0.836 | 0.164 | 4.05 | 0.786 |
+| Model | Frames seen | Rate | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+|---|---|---|---|---|---|---|---|---|
+| Pi3 | 6 | 10 Hz | 0.087 | 2.64 | 0.930 | 0.087 | 2.67 | 0.929 |
+| Pi3 | 6 | 2 Hz | 0.091 | 2.65 | 0.928 | 0.093 | 2.73 | 0.923 |
+| VGGT | 6 | 10 Hz | 0.096 | 2.76 | 0.919 | 0.092 | 2.79 | 0.917 |
+| VGGT | 6 | 2 Hz | 0.100 | 2.78 | 0.919 | 0.091 | 2.87 | 0.917 |
+| DA3 | 6 | 10 Hz | 0.116 | 2.96 | 0.888 | 0.115 | 2.98 | 0.890 |
+| DA3 | 6 | 2 Hz | 0.120 | 3.12 | 0.878 | 0.121 | 3.17 | 0.876 |
+| **LFG** | 3 | 10 Hz | 0.101 | 2.87 | 0.913 | 0.101 | 2.98 | 0.909 |
+| **LFG** | 3 | 2 Hz | 0.142 | 3.46 | 0.836 | 0.164 | 4.05 | 0.786 |
 
 **Trajectory** — ATE after a similarity alignment; rotation and translation error against the
 first frame, translation as a share of the distance travelled.
 
-| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
-|---|---|---|---|---|
-| Pi3 | 6 | 0.09 | 0.91 | 9.5 |
-| VGGT | 6 | 0.20 | 1.37 | 10.8 |
-| **LFG** | 3 | 0.27 | 2.46 | 18.4 |
+| Model | Frames seen | Rate | ATE (m) | Rot (deg) | Trans (%) |
+|---|---|---|---|---|---|
+| Pi3 | 6 | 10 Hz | 0.02 | 0.25 | 9.9 |
+| Pi3 | 6 | 2 Hz | 0.09 | 0.91 | 9.5 |
+| VGGT | 6 | 10 Hz | 0.03 | 0.33 | 10.3 |
+| VGGT | 6 | 2 Hz | 0.20 | 1.37 | 10.8 |
+| **LFG** | 3 | 10 Hz | 0.10 | 0.57 | 22.7 |
+| **LFG** | 3 | 2 Hz | 0.27 | 2.46 | 18.4 |
 
 **Semantics** — seven classes, averaged per frame over the classes present.
 
-| Model | Frames seen | Split | PA | mIoU |
-|---|---|---|---|---|
-| Static (labels carried forward) | 3 | predicted | 0.822 | 0.520 |
-| MaskFormer | 6 | overall | 0.938 | 0.623 |
-| SegFormer | 6 | overall | 0.952 | 0.705 |
-| **LFG** | 3 | overall | 0.902 | 0.665 |
-| **LFG** | 3 | predicted | 0.866 | 0.606 |
+| Model | Frames seen | Rate | Split | PA | mIoU |
+|---|---|---|---|---|---|
+| Static (labels carried forward) | 3 | 10 Hz | predicted | 0.928 | 0.739 |
+| Static (labels carried forward) | 3 | 2 Hz | predicted | 0.822 | 0.519 |
+| MaskFormer | 6 | 10 Hz | overall | 0.938 | 0.626 |
+| MaskFormer | 6 | 2 Hz | overall | 0.938 | 0.623 |
+| SegFormer | 6 | 10 Hz | overall | 0.950 | 0.695 |
+| SegFormer | 6 | 2 Hz | overall | 0.952 | 0.706 |
+| **LFG** | 3 | 10 Hz | overall | 0.933 | 0.716 |
+| **LFG** | 3 | 2 Hz | overall | 0.902 | 0.665 |
+| **LFG** | 3 | 10 Hz | predicted | 0.927 | 0.707 |
+| **LFG** | 3 | 2 Hz | predicted | 0.866 | 0.607 |
 
 #### Waymo Open Dataset
 
 **Depth**
 
-| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
-|---|---|---|---|---|---|---|---|
-| Pi3 | 6 | 0.140 | 5.27 | 0.842 | 0.140 | 5.26 | 0.841 |
-| VGGT | 6 | 0.077 | 3.84 | 0.941 | 0.077 | 3.87 | 0.940 |
-| DA3 | 6 | 0.151 | 5.57 | 0.829 | 0.152 | 5.55 | 0.829 |
-| **LFG** | 3 | 0.172 | 5.95 | 0.781 | 0.184 | 6.55 | 0.764 |
+| Model | Frames seen | Rate | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+|---|---|---|---|---|---|---|---|---|
+| Pi3 | 6 | 10 Hz | 0.118 | 4.98 | 0.872 | 0.119 | 5.00 | 0.871 |
+| Pi3 | 6 | 2 Hz | 0.121 | 5.15 | 0.875 | 0.120 | 5.15 | 0.873 |
+| VGGT | 6 | 10 Hz | 0.074 | 3.88 | 0.940 | 0.074 | 3.91 | 0.940 |
+| VGGT | 6 | 2 Hz | 0.073 | 3.89 | 0.943 | 0.073 | 3.96 | 0.943 |
+| DA3 | 6 | 10 Hz | 0.142 | 5.59 | 0.839 | 0.143 | 5.62 | 0.838 |
+| DA3 | 6 | 2 Hz | 0.147 | 5.73 | 0.832 | 0.147 | 5.71 | 0.830 |
+| **LFG** | 3 | 10 Hz | 0.133 | 5.21 | 0.847 | 0.135 | 5.40 | 0.845 |
+| **LFG** | 3 | 2 Hz | 0.155 | 5.86 | 0.810 | 0.166 | 6.53 | 0.792 |
 
 **Trajectory**
 
-| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
-|---|---|---|---|---|
-| Pi3 | 6 | 0.07 | 0.51 | 2.3 |
-| VGGT | 6 | 0.06 | 0.37 | 2.0 |
-| **LFG** | 3 | 0.31 | 0.81 | 13.3 |
+| Model | Frames seen | Rate | ATE (m) | Rot (deg) | Trans (%) |
+|---|---|---|---|---|---|
+| Pi3 | 6 | 10 Hz | 0.03 | 0.19 | 2.9 |
+| Pi3 | 6 | 2 Hz | 0.09 | 0.73 | 2.4 |
+| VGGT | 6 | 10 Hz | 0.02 | 0.15 | 2.4 |
+| VGGT | 6 | 2 Hz | 0.08 | 0.51 | 2.0 |
+| **LFG** | 3 | 10 Hz | 0.31 | 0.26 | 20.8 |
+| **LFG** | 3 | 2 Hz | 0.29 | 0.98 | 5.2 |
 
 ### Conventions
 
@@ -318,7 +337,7 @@ first frame, translation as a share of the distance travelled.
 - **Semantics** uses seven classes; PA and mIoU are averaged per frame over the classes present
   in it, excluding Cityscapes void labels.
 - **Trajectory** aligns predicted poses by a similarity before measuring ATE. Translation error
-  is a share of distance travelled, so it does not grow with the length of the clip.
+  is reported as a share of the distance travelled rather than in metres.
 
 ## 📝 Citation
 
@@ -344,6 +363,7 @@ Third-party components under `Pi3/` are licensed separately — see [THIRD_PARTY
 
 This codebase builds on [Pi3](https://github.com/yyfz/Pi3), whose model code is bundled under
 `Pi3/`, and which in turn builds on [DINOv2](https://github.com/facebookresearch/dinov2)
-(Meta Platforms). Evaluation baselines use [VGGT](https://github.com/facebookresearch/vggt) and
+(Meta Platforms). Evaluation baselines use [VGGT](https://github.com/facebookresearch/vggt),
+[Depth Anything 3](https://github.com/ByteDance-Seed/Depth-Anything-3) and
 [SegFormer](https://huggingface.co/nvidia/segformer-b5-finetuned-cityscapes-1024-1024). We thank
 the authors for open-sourcing their work.
