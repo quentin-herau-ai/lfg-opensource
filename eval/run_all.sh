@@ -9,7 +9,8 @@
 #
 # The Pi3 baseline needs the upstream pi3 package importable; its weights download on use.
 #
-# Results land in eval/results/ as JSON, one file per model and dataset.
+# Every model is evaluated at both frame rates. Results land in eval/results/<rate>/ as JSON,
+# one file per model and dataset.
 set -euo pipefail
 
 LFG=""; KITTI360=""; WAYMO=""; DEVICE="cuda"
@@ -29,7 +30,6 @@ if [[ -z "$LFG" || -z "$KITTI360" ]]; then
 fi
 
 cd "$(dirname "$0")/.."
-mkdir -p eval/results
 
 missing () { echo "missing $1: $2" >&2; MISSING=1; }
 MISSING=0
@@ -49,7 +49,8 @@ run () {   # run <model> <dataset> <data-root> <clip-list> <output-name> [checkp
   printf '%-12s %-9s ' "$model" "$dataset"
   if python evaluate.py --model "$model" --checkpoint "$checkpoint" \
       --dataset "$dataset" --data-root "$root" --clip-list "eval/clips/$clips" \
-      --frame-stride 5 --device "$DEVICE" --output "eval/results/$name.json" >"$log" 2>&1; then
+      --frame-stride "$STRIDE" --device "$DEVICE" \
+      --output "eval/results/$RATE/$name.json" >"$log" 2>&1; then
     echo "ok"
   else
     echo "FAILED"
@@ -62,27 +63,35 @@ run () {   # run <model> <dataset> <data-root> <clip-list> <output-name> [checkp
 
 FAILURES=0
 
-echo "KITTI-360 — depth, semantics and trajectory"
-run lfg        kitti360 "$KITTI360" kitti360_200.txt lfg        "$LFG"
-run vggt       kitti360 "$KITTI360" kitti360_200.txt vggt
-run da3        kitti360 "$KITTI360" kitti360_200.txt da3
-run segformer  kitti360 "$KITTI360" kitti360_200.txt segformer
-run maskformer kitti360 "$KITTI360" kitti360_200.txt maskformer
-run static     kitti360 "$KITTI360" kitti360_200.txt static
-run pi3        kitti360 "$KITTI360" kitti360_200.txt pi3
-
-if [[ -n "$WAYMO" ]]; then
+for RATE in 10hz 2hz; do
+  [[ "$RATE" == "10hz" ]] && STRIDE=1 || STRIDE=5
+  mkdir -p "eval/results/$RATE"
   echo
-  echo "Waymo — depth and trajectory"
-  run lfg  waymo "$WAYMO" waymo_200.txt waymo_lfg  "$LFG"
-  run vggt waymo "$WAYMO" waymo_200.txt waymo_vggt
-  run da3  waymo "$WAYMO" waymo_200.txt waymo_da3
-  run pi3  waymo "$WAYMO" waymo_200.txt waymo_pi3
-fi
+  echo "===== $RATE ====="
+
+  echo "KITTI-360 — depth, semantics and trajectory"
+  run lfg        kitti360 "$KITTI360" kitti360_200.txt lfg        "$LFG"
+  run vggt       kitti360 "$KITTI360" kitti360_200.txt vggt
+  run da3        kitti360 "$KITTI360" kitti360_200.txt da3
+  run segformer  kitti360 "$KITTI360" kitti360_200.txt segformer
+  run maskformer kitti360 "$KITTI360" kitti360_200.txt maskformer
+  run static     kitti360 "$KITTI360" kitti360_200.txt static
+  run pi3        kitti360 "$KITTI360" kitti360_200.txt pi3
+
+  if [[ -n "$WAYMO" ]]; then
+    echo
+    echo "Waymo — depth and trajectory"
+    run lfg  waymo "$WAYMO" waymo_200.txt waymo_lfg  "$LFG"
+    run vggt waymo "$WAYMO" waymo_200.txt waymo_vggt
+    run da3  waymo "$WAYMO" waymo_200.txt waymo_da3
+    run pi3  waymo "$WAYMO" waymo_200.txt waymo_pi3
+  fi
+
+done
 
 echo
 if [[ "$FAILURES" -gt 0 ]]; then
   echo "$FAILURES run(s) failed; results for the rest are in eval/results/" >&2
   exit 1
 fi
-echo "results written to eval/results/"
+echo "results written to eval/results/10hz/ and eval/results/2hz/"

@@ -160,9 +160,9 @@ windows.
 ## 📊 Evaluation
 
 `evaluate.py` scores depth, semantic segmentation and trajectory on KITTI-360 and the Waymo
-Open Dataset. Each clip is six consecutive frames; LFG is given the first three and predicts all
-six, so results are reported over all frames (`overall`) and over the three it had to predict
-(`predicted`). Baselines that do not predict the future are given all six frames.
+Open Dataset. Each clip is six frames from one sequence; LFG is given the first three and
+predicts all six, so results are reported over all frames (`overall`) and over the three it had
+to predict (`predicted`). Baselines that do not predict the future are given all six frames.
 
 ### Data
 
@@ -201,8 +201,8 @@ waymo_v2/validation/
   vehicle_pose/<segment>.parquet
 ```
 
-The shipped clip list spans 42 `validation` segments, stratified over the split's time-of-day,
-location and weather conditions (~24 GB for the five components). The segment names are the
+The shipped clip list spans 37 `validation` segments, stratified over the split's time-of-day,
+location and weather conditions (~21 GB for the five components). The segment names are the
 prefixes in `eval/clips/waymo_200.txt`.
 
 ### Usage
@@ -225,8 +225,10 @@ python evaluate.py \
 ```
 
 The clips behind the tables below are listed in `eval/clips/`; the KITTI-360 list is used by
-default. Point `--clip-list` at your own file (one `<sequence>:<first frame>` per line) to score
-a different set, and `--cache-dir` to reuse decoded ground truth between runs.
+default. `--frame-stride` sets the spacing between the six frames — 1 for 10 Hz, 5 for 2 Hz.
+Point `--clip-list` at your own file (one `<sequence>:<first frame>` per line) to score a
+different set, and `--cache-dir` to reuse decoded ground truth between runs; the cache is keyed
+by frame rate, so the two rates never share entries.
 
 To reproduce every row of the tables below:
 
@@ -255,8 +257,10 @@ Baseline weights download automatically on first use; only `--model lfg` takes a
 
 ### Results
 
-200 clips per dataset at 2 Hz. Raw output, including per-metric standard deviations, is in
-`eval/results/`.
+200 clips per dataset, evaluated at both frame rates: 10 Hz, where the three predicted frames
+are 0.5 s ahead, and 2 Hz, where they are 2.5 s ahead. Every clip scores at both rates. Raw
+output, including per-metric standard deviations, is in `eval/results/10hz/` and
+`eval/results/2hz/`.
 
 #### KITTI-360
 
