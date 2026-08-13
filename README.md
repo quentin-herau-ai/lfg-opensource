@@ -348,6 +348,3 @@ This codebase builds on [Pi3](https://github.com/yyfz/Pi3), whose model code is 
 (Meta Platforms). Evaluation baselines use [VGGT](https://github.com/facebookresearch/vggt) and
 [SegFormer](https://huggingface.co/nvidia/segformer-b5-finetuned-cityscapes-1024-1024). We thank
 the authors for open-sourcing their work.
-
-**Support:** best-effort via GitHub Issues. First response within ~1 week for critical bugs
-blocking installation, inference, or smoke tests.
