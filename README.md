@@ -53,9 +53,11 @@ pip install -e .          # optional, installs the lfg-infer entry point
 **Requirements:** PyTorch 2.4+. A CUDA GPU is recommended but not required — the CLI falls back
 to CPU. Install PyTorch for your platform first if the default wheel does not match your driver.
 
-**External assets:** the checkpoint (below, from Hugging Face) and, for evaluation only, the
-KITTI-360 dataset (see [Evaluation](#-evaluation)). Baseline comparisons additionally need their
-upstream packages, listed in that section.
+**External assets:** the checkpoint, from Hugging Face (below). Evaluation additionally needs
+[KITTI-360](https://www.cvlibs.net/datasets/kitti-360/) and the
+[Waymo Open Dataset](https://waymo.com/open/), both of which require registration on their own
+sites, and the baselines need their upstream packages — see [Evaluation](#-evaluation) for
+both.
 
 ## 📦 Checkpoints
 
