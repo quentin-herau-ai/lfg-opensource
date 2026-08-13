@@ -20,7 +20,7 @@ LFG learns a unified pseudo-4D representation — 3D point maps, camera poses, s
 confidence and motion masks — from unposed, unlabelled dashcam video, supervised entirely by
 frozen teacher models rather than human annotation. Given three observed frames it predicts all
 of these for the observed frames *and* three future ones. This repository contains the local
-inference path and the evaluation harness used for the paper's KITTI-360 benchmarks.
+inference path and the evaluation harness for the KITTI-360 and Waymo benchmarks.
 
 ## 🔥 News
 
@@ -34,6 +34,7 @@ inference path and the evaluation harness used for the paper's KITTI-360 benchma
 - [Installation](#️-installation)
 - [Checkpoints](#-checkpoints)
 - [Getting Started](#-getting-started)
+- [Outputs](#-outputs)
 - [Evaluation](#-evaluation)
 - [Citation](#-citation)
 - [License](#️-license)
@@ -150,14 +151,18 @@ outputs/.../
 | `motion` | `[M+N, H, W, 1]` | Motion logits, if enabled. |
 | `flow` | `[M+N, H, W, 2]` | Optical-flow logits, if enabled. |
 
-For long videos or image sequences, inference streams sampled frames through sliding windows instead of decoding the full input into memory first. The first `M` predictions correspond to the input/history frames for that window; the next `N` predictions are autoregressive future predictions. The JSON metadata records the source frame indices and which slots are padded for short tail windows.
+For long videos or image sequences, inference streams sampled frames through sliding windows
+instead of decoding the full input into memory first. The first `M` predictions correspond to the
+input/history frames for that window; the next `N` are autoregressive future predictions. The
+JSON metadata records the source frame indices and which slots are padded for short tail
+windows.
 
 ## 📊 Evaluation
 
 `evaluate.py` scores depth, semantic segmentation and trajectory on KITTI-360 and the Waymo
-Open Dataset, following the protocol described in the paper. Each clip is six consecutive frames; LFG is given the first three and predicts
-all six, so results are reported over all frames (`overall`) and over the three it had to
-predict (`predicted`). Baselines that do not predict the future are given all six frames.
+Open Dataset. Each clip is six consecutive frames; LFG is given the first three and predicts all
+six, so results are reported over all frames (`overall`) and over the three it had to predict
+(`predicted`). Baselines that do not predict the future are given all six frames.
 
 ### Data
 
@@ -278,7 +283,7 @@ first frame, translation as a share of the distance travelled.
 
 | Model | Frames seen | Split | PA | mIoU |
 |---|---|---|---|---|
-| Static (labels carried forward) | – | predicted | 0.822 | 0.520 |
+| Static (labels carried forward) | 3 | predicted | 0.822 | 0.520 |
 | MaskFormer | 6 | overall | 0.938 | 0.623 |
 | SegFormer | 6 | overall | 0.952 | 0.705 |
 | **LFG** | 3 | overall | 0.902 | 0.665 |
