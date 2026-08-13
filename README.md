@@ -315,7 +315,6 @@ error is undefined when the vehicle is stopped.
   in it, excluding Cityscapes void labels.
 - **Trajectory** aligns predicted poses by a similarity before measuring ATE. Translation error
   is a share of distance travelled, so it does not grow with the length of the clip.
-- **Clips** are sampled at 2 Hz (`--frame-stride 5`). Both datasets record at 10 Hz.
 
 ## 📝 Citation
 
