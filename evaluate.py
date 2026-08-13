@@ -754,7 +754,6 @@ def build_predictor(args: argparse.Namespace):
 
 
 def evaluate(args: argparse.Namespace) -> dict:
-    predict, future_start, model_info = build_predictor(args)
     cache_dir = Path(args.cache_dir) if args.cache_dir else None
 
     root = Path(args.data_root)
@@ -778,15 +777,16 @@ def evaluate(args: argparse.Namespace) -> dict:
             f"{len(missing)} of {len(wanted)} clips in {args.clip_list} are not under "
             f"{root}. Sequences needed: {', '.join(sequences)}"
         )
-    # Score sequence by sequence: the metrics are order-independent, but reading a clip is far
-    # cheaper when the sequence it belongs to is already the one held in memory.
     if args.model in SEGMENTATION_ONLY and not any(clip.load_labels for clip in clips):
         raise SystemExit(
             f"{args.dataset} has no semantic labels, so the {args.model} baseline has nothing "
             "to score. Segmentation is evaluated on KITTI-360."
         )
 
+    # Score sequence by sequence: the metrics are order-independent, but reading a clip is far
+    # cheaper when the sequence it belongs to is already the one held in memory.
     clips = sorted((by_name[name] for name in wanted), key=lambda clip: clip.name)
+    predict, future_start, model_info = build_predictor(args)
     print(f"{len(clips)} clips from {args.clip_list}")
 
     scored: dict[str, list[float]] = {k: [] for k in ("overall_absrel", "overall_rmse",
