@@ -399,6 +399,8 @@ Third-party components under `Pi3/` are licensed separately — see [THIRD_PARTY
 This codebase builds on [Pi3](https://github.com/yyfz/Pi3), whose model code is bundled under
 `Pi3/`, and which in turn builds on [DINOv2](https://github.com/facebookresearch/dinov2)
 (Meta Platforms). Evaluation baselines use [VGGT](https://github.com/facebookresearch/vggt),
-[Depth Anything 3](https://github.com/ByteDance-Seed/Depth-Anything-3) and
-[SegFormer](https://huggingface.co/nvidia/segformer-b5-finetuned-cityscapes-1024-1024). We thank
-the authors for open-sourcing their work.
+[Depth Anything 3](https://github.com/ByteDance-Seed/Depth-Anything-3),
+[SegFormer](https://huggingface.co/nvidia/segformer-b5-finetuned-cityscapes-1024-1024) and
+[MaskFormer](https://huggingface.co/facebook/maskformer-resnet101-cityscapes), and the benchmarks
+use [KITTI-360](https://www.cvlibs.net/datasets/kitti-360/) and the
+[Waymo Open Dataset](https://waymo.com/open/). We thank the authors for open-sourcing their work.
