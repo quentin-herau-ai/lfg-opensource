@@ -317,20 +317,6 @@ error is undefined when the vehicle is stopped.
   is a share of distance travelled, so it does not grow with the length of the clip.
 - **Clips** are sampled at 2 Hz (`--frame-stride 5`), a rate the checkpoint was trained at and
   the one its encoder runs at downstream.
-- **No filtering.** Every prediction is scored as the model emits it. Confidence is never used
-  to mask depth, and there is no post-processing of the future frames. The only masks come from
-  the ground truth: pixels with no LiDAR return, or beyond 80 m, are not scored.
-- **One checkpoint** produces depth, pose, segmentation and motion; there is no separate
-  geometry model.
-
-The clip lists in `eval/clips/` are a broader and more varied selection than the one behind the
-tables in the paper, chosen to spread over more sequences and conditions, and the metrics here
-are the ones that carry the most information: mIoU rather than mDice, which is a monotone
-function of IoU and so adds nothing to it; mIoU alongside PA rather than frequency-weighted IoU,
-which is dominated by road and building and hides the small classes; delta<1.25 for depth; and
-translation as a share of distance travelled, which stays comparable across frame rates. Numbers
-therefore differ from the published tables. The results above are what this code produces on
-this split, end to end.
 
 ## 📝 Citation
 
