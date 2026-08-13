@@ -8,7 +8,8 @@
   <a href="https://arxiv.org/abs/2602.22091"><img src="https://img.shields.io/badge/arXiv-2602.22091-b31b1b.svg" alt="arXiv"></a>
   <a href="https://lfg-ai.github.io/"><img src="https://img.shields.io/badge/Project-Website-blue" alt="Project Page"></a>
   <a href="https://huggingface.co/AppliedIntuitionResearch/LFG"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-Checkpoints-yellow" alt="Hugging Face"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-green.svg" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/Code-Apache%202.0-green.svg" alt="Code license"></a>
+  <a href="https://huggingface.co/AppliedIntuitionResearch/LFG"><img src="https://img.shields.io/badge/Weights-CC%20BY--NC%204.0-lightgrey.svg" alt="Weights license"></a>
 </p>
 
 <p align="center">
@@ -264,11 +265,12 @@ output, including per-metric standard deviations, is in `eval/results/10hz/` and
 
 #### KITTI-360
 
-**Depth** — AbsRel, RMSE (m) and the share of pixels within a factor of 1.25, against Velodyne.
+**Depth** — against Velodyne, after the per-clip alignment. δ<1.25 is the share of pixels within
+that factor of the truth.
 
 *10 Hz — 0.5 s horizon*
 
-| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+| Model | Frames seen | AbsRel ↓ | RMSE ↓ | δ<1.25 ↑ | AbsRel ↓ (pred.) | RMSE ↓ (pred.) | δ<1.25 ↑ (pred.) |
 |---|---|---|---|---|---|---|---|
 | Pi3 | 6 | 0.087 | 2.64 | 0.930 | 0.087 | 2.67 | 0.929 |
 | VGGT | 6 | 0.096 | 2.76 | 0.919 | 0.092 | 2.79 | 0.917 |
@@ -277,7 +279,7 @@ output, including per-metric standard deviations, is in `eval/results/10hz/` and
 
 *2 Hz — 2.5 s horizon*
 
-| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+| Model | Frames seen | AbsRel ↓ | RMSE ↓ | δ<1.25 ↑ | AbsRel ↓ (pred.) | RMSE ↓ (pred.) | δ<1.25 ↑ (pred.) |
 |---|---|---|---|---|---|---|---|
 | Pi3 | 6 | 0.091 | 2.65 | 0.928 | 0.093 | 2.73 | 0.923 |
 | VGGT | 6 | 0.100 | 2.78 | 0.919 | 0.091 | 2.87 | 0.917 |
@@ -289,7 +291,7 @@ first frame, translation as a share of the distance travelled.
 
 *10 Hz — 0.5 s horizon*
 
-| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
+| Model | Frames seen | ATE ↓ (m) | Rot ↓ (deg) | Trans ↓ (%) |
 |---|---|---|---|---|
 | Pi3 | 6 | 0.02 | 0.25 | 9.9 |
 | VGGT | 6 | 0.03 | 0.33 | 10.3 |
@@ -297,19 +299,21 @@ first frame, translation as a share of the distance travelled.
 
 *2 Hz — 2.5 s horizon*
 
-| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
+| Model | Frames seen | ATE ↓ (m) | Rot ↓ (deg) | Trans ↓ (%) |
 |---|---|---|---|---|
 | Pi3 | 6 | 0.09 | 0.91 | 9.5 |
 | VGGT | 6 | 0.20 | 1.37 | 10.8 |
 | **LFG** | 3 | 0.27 | 2.46 | 18.4 |
 
-**Semantics** — seven classes, averaged per frame over the classes present.
+**Semantics** — seven classes, averaged per frame over the classes present. *Static* freezes
+SegFormer's output for the last observed frame, so it measures how much of the future is simply
+the present.
 
 *10 Hz — 0.5 s horizon*
 
-| Model | Frames seen | Split | PA | mIoU |
+| Model | Frames seen | Split | PA ↑ | mIoU ↑ |
 |---|---|---|---|---|
-| Static (SegFormer, frame 3 carried forward) | 3 | predicted | 0.895 | 0.582 |
+| Static | 3 | predicted | 0.895 | 0.582 |
 | MaskFormer | 6 | overall | 0.938 | 0.626 |
 | SegFormer | 6 | overall | 0.950 | 0.695 |
 | **LFG** | 3 | overall | 0.933 | 0.716 |
@@ -317,9 +321,9 @@ first frame, translation as a share of the distance travelled.
 
 *2 Hz — 2.5 s horizon*
 
-| Model | Frames seen | Split | PA | mIoU |
+| Model | Frames seen | Split | PA ↑ | mIoU ↑ |
 |---|---|---|---|---|
-| Static (SegFormer, frame 3 carried forward) | 3 | predicted | 0.806 | 0.448 |
+| Static | 3 | predicted | 0.806 | 0.448 |
 | MaskFormer | 6 | overall | 0.938 | 0.623 |
 | SegFormer | 6 | overall | 0.952 | 0.706 |
 | **LFG** | 3 | overall | 0.902 | 0.665 |
@@ -331,7 +335,7 @@ first frame, translation as a share of the distance travelled.
 
 *10 Hz — 0.5 s horizon*
 
-| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+| Model | Frames seen | AbsRel ↓ | RMSE ↓ | δ<1.25 ↑ | AbsRel ↓ (pred.) | RMSE ↓ (pred.) | δ<1.25 ↑ (pred.) |
 |---|---|---|---|---|---|---|---|
 | Pi3 | 6 | 0.118 | 4.98 | 0.872 | 0.119 | 5.00 | 0.871 |
 | VGGT | 6 | 0.074 | 3.88 | 0.940 | 0.074 | 3.91 | 0.940 |
@@ -340,7 +344,7 @@ first frame, translation as a share of the distance travelled.
 
 *2 Hz — 2.5 s horizon*
 
-| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+| Model | Frames seen | AbsRel ↓ | RMSE ↓ | δ<1.25 ↑ | AbsRel ↓ (pred.) | RMSE ↓ (pred.) | δ<1.25 ↑ (pred.) |
 |---|---|---|---|---|---|---|---|
 | Pi3 | 6 | 0.121 | 5.15 | 0.875 | 0.120 | 5.15 | 0.873 |
 | VGGT | 6 | 0.073 | 3.89 | 0.943 | 0.073 | 3.96 | 0.943 |
@@ -351,7 +355,7 @@ first frame, translation as a share of the distance travelled.
 
 *10 Hz — 0.5 s horizon*
 
-| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
+| Model | Frames seen | ATE ↓ (m) | Rot ↓ (deg) | Trans ↓ (%) |
 |---|---|---|---|---|
 | Pi3 | 6 | 0.03 | 0.19 | 2.9 |
 | VGGT | 6 | 0.02 | 0.15 | 2.4 |
@@ -359,7 +363,7 @@ first frame, translation as a share of the distance travelled.
 
 *2 Hz — 2.5 s horizon*
 
-| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
+| Model | Frames seen | ATE ↓ (m) | Rot ↓ (deg) | Trans ↓ (%) |
 |---|---|---|---|---|
 | Pi3 | 6 | 0.09 | 0.73 | 2.4 |
 | VGGT | 6 | 0.08 | 0.51 | 2.0 |
