@@ -407,11 +407,13 @@ def waymo_clips(root: Path, max_depth: float, stride: int = 1) -> Iterator[Clip]
                     _waymo_at(table, stamp).column("[CameraImageComponent].image")[0].as_py()
                 )).convert("RGB")) for stamp in window]
 
-            def load_depth(slot, out_h, out_w, window=window, segment=segment) -> np.ndarray:
+            def load_depth(slot, out_h, out_w, window=window, segment=segment,
+                           camera_size=camera_size, intrinsics=intrinsics) -> np.ndarray:
                 return _waymo_depth(root, segment, window[slot], camera_size, intrinsics,
                                     (out_h, out_w), max_depth)
 
-            def load_poses(window=window, segment=segment) -> np.ndarray:
+            def load_poses(window=window, segment=segment,
+                           vehicle_from_camera=vehicle_from_camera) -> np.ndarray:
                 table = _waymo_arrow(root, "vehicle_pose", segment,
                                      ("key.frame_timestamp_micros",
                                       "[VehiclePoseComponent].world_from_vehicle.transform")).to_pydict()

@@ -283,42 +283,20 @@ first frame)
 | Model | Frames seen | AbsRel | RMSE | AbsRel (pred.) | RMSE (pred.) |
 |---|---|---|---|---|---|
 | Pi3 | 6 | 0.145 ± 0.094 | 5.32 ± 2.00 | 0.146 ± 0.096 | 5.31 ± 2.05 |
-| VGGT | 6 | 0.080 ± 0.042 | 3.89 ± 1.12 | 0.080 ± 0.043 | 3.92 ± 1.20 |
+| VGGT | 6 | 0.080 ± 0.042 | 3.89 ± 1.13 | 0.080 ± 0.043 | 3.92 ± 1.20 |
 | DA3 | 6 | 0.151 ± 0.073 | 5.53 ± 1.69 | 0.154 ± 0.077 | 5.53 ± 1.76 |
-| **LFG** | 3 | 0.172 ± 0.087 | 5.85 ± 1.87 | 0.184 ± 0.095 | 6.37 ± 2.11 |
+| **LFG** | 3 | 0.172 ± 0.087 | 5.86 ± 1.88 | 0.184 ± 0.095 | 6.37 ± 2.11 |
 
 **Trajectory**
 
 | Model | Frames seen | ATE (m) | Rot (deg) | Trans (m) |
 |---|---|---|---|---|
-| Pi3 | 6 | 0.07 ± 0.12 | 0.48 ± 0.91 | 0.35 ± 0.40 |
-| VGGT | 6 | 0.05 ± 0.08 | 0.34 ± 0.48 | 0.32 ± 0.35 |
-| **LFG** | 3 | 0.26 ± 0.16 | 0.73 ± 1.11 | 0.60 ± 0.48 |
+| Pi3 | 6 | 0.07 ± 0.12 | 0.48 ± 0.91 | 0.23 ± 0.29 |
+| VGGT | 6 | 0.05 ± 0.08 | 0.34 ± 0.48 | 0.20 ± 0.23 |
+| **LFG** | 3 | 0.26 ± 0.16 | 0.73 ± 1.11 | 0.51 ± 0.41 |
 
 Seeing only three frames, LFG stays close to Pi3 given all six — within 0.8 m RMSE on KITTI-360
 and 0.5 m on Waymo — while its predicted frames degrade only modestly against its observed ones.
-
-### Runtime
-
-On one A100, 200 clips takes roughly 2 minutes on KITTI-360 and 9 minutes on Waymo. Waymo is
-slower because decoding its LiDAR parquet dominates — the GPU is mostly idle — so `--cache-dir`
-stores the decoded ground-truth depth and makes later runs over the same clips about twice as
-fast (532 s to 251 s here, for 86 MB on disk). Results are identical either way; the cache is
-keyed on everything that affects them.
-
-```bash
-python evaluate.py --checkpoint checkpoints/lfg_seg_motion_m3n3.pt \
-  --dataset waymo --data-root /path/to/waymo_v2/validation \
-  --clip-list eval/clips/waymo_200.txt --cache-dir /tmp/lfg_eval_cache
-```
-
-### Tests
-
-Metric unit tests need no dataset or weights:
-
-```bash
-pip install pytest && python -m pytest tests/
-```
 
 ### Conventions
 
@@ -330,7 +308,7 @@ checkpoint was trained on and the rate at which its encoder is used downstream; 
 horizon makes future prediction close to trivial. Segmentation class averages cover the classes
 present in each frame; `--seg-average all` averages over all seven with absent
 classes scoring zero, and `--seg-metrics dataset` accumulates one confusion matrix instead.
-Ground truth beyond `--max-depth` (80 m) is ignored.
+Ground truth beyond `--max-depth` (80 m) is ignored. `--cache-dir` reuses decoded ground-truth depth between runs, which roughly halves repeat runs on Waymo without changing results.
 
 ## 📈 Results
 
