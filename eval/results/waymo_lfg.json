@@ -6,7 +6,6 @@
   "clip_list": "eval/clips/waymo_200.txt",
   "frame_stride": 5,
   "cache_dir": null,
-  "alignment": "per-clip",
   "max_depth": 80.0,
   "model": {
     "model": "lfg",
@@ -54,20 +53,35 @@
       "std": 1.8521262806392234,
       "count": 200
     },
-    "trajectory_ate": {
-      "mean": 0.25680284226371347,
-      "std": 0.1558665187727008,
+    "overall_delta1": {
+      "mean": 0.7828243423751309,
+      "std": 0.15848854130656087,
       "count": 200
+    },
+    "predicted_delta1": {
+      "mean": 0.7664218216563147,
+      "std": 0.16226676600458614,
+      "count": 200
+    },
+    "observed_delta1": {
+      "mean": 0.799226863093947,
+      "std": 0.16021207094815754,
+      "count": 200
+    },
+    "trajectory_ate": {
+      "mean": 0.30773550002195726,
+      "std": 0.1215511003951383,
+      "count": 162
     },
     "trajectory_rot": {
-      "mean": 0.7300443075218337,
-      "std": 1.1064133999911259,
-      "count": 200
+      "mean": 0.8648700166267921,
+      "std": 1.1867999027710707,
+      "count": 162
     },
-    "trajectory_trans": {
-      "mean": 0.5057335938622107,
-      "std": 0.41380853974779597,
-      "count": 200
+    "trajectory_trans_pct": {
+      "mean": 10.673316487145762,
+      "std": 16.572213940580806,
+      "count": 162
     },
     "overall_pa": {
       "mean": NaN,
@@ -79,32 +93,12 @@
       "std": NaN,
       "count": 0
     },
-    "overall_mdice": {
-      "mean": NaN,
-      "std": NaN,
-      "count": 0
-    },
-    "overall_fwiou": {
-      "mean": NaN,
-      "std": NaN,
-      "count": 0
-    },
     "predicted_pa": {
       "mean": NaN,
       "std": NaN,
       "count": 0
     },
     "predicted_miou": {
-      "mean": NaN,
-      "std": NaN,
-      "count": 0
-    },
-    "predicted_mdice": {
-      "mean": NaN,
-      "std": NaN,
-      "count": 0
-    },
-    "predicted_fwiou": {
       "mean": NaN,
       "std": NaN,
       "count": 0

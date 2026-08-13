@@ -6,7 +6,6 @@
   "clip_list": "eval/clips/kitti360_200.txt",
   "frame_stride": 5,
   "cache_dir": null,
-  "alignment": "per-clip",
   "max_depth": 80.0,
   "model": {
     "model": "segformer",
@@ -43,6 +42,21 @@
       "std": NaN,
       "count": 0
     },
+    "overall_delta1": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_delta1": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "observed_delta1": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
     "trajectory_ate": {
       "mean": NaN,
       "std": NaN,
@@ -53,7 +67,7 @@
       "std": NaN,
       "count": 0
     },
-    "trajectory_trans": {
+    "trajectory_trans_pct": {
       "mean": NaN,
       "std": NaN,
       "count": 0
@@ -68,16 +82,6 @@
       "std": 0.09752232199960267,
       "count": 200
     },
-    "overall_mdice": {
-      "mean": 0.759655083186603,
-      "std": 0.09685495594090178,
-      "count": 200
-    },
-    "overall_fwiou": {
-      "mean": 0.9133626285568375,
-      "std": 0.03126846722541523,
-      "count": 200
-    },
     "predicted_pa": {
       "mean": 0.9528742351085299,
       "std": 0.021010409643903834,
@@ -86,16 +90,6 @@
     "predicted_miou": {
       "mean": 0.7129354537552106,
       "std": 0.10917350731422153,
-      "count": 200
-    },
-    "predicted_mdice": {
-      "mean": 0.7664526377400194,
-      "std": 0.1104819669163515,
-      "count": 200
-    },
-    "predicted_fwiou": {
-      "mean": 0.9149806115879754,
-      "std": 0.03507711798646581,
       "count": 200
     }
   }

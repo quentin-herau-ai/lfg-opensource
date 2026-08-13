@@ -6,7 +6,6 @@
   "clip_list": "eval/clips/kitti360_200.txt",
   "frame_stride": 5,
   "cache_dir": null,
-  "alignment": "per-clip",
   "max_depth": 80.0,
   "model": {
     "model": "lfg",
@@ -54,6 +53,21 @@
       "std": 0.982850740590329,
       "count": 200
     },
+    "overall_delta1": {
+      "mean": 0.8364789621589054,
+      "std": 0.10058502427315207,
+      "count": 200
+    },
+    "predicted_delta1": {
+      "mean": 0.7856063920960982,
+      "std": 0.10787095038741581,
+      "count": 200
+    },
+    "observed_delta1": {
+      "mean": 0.8873515322217125,
+      "std": 0.11303489409258953,
+      "count": 200
+    },
     "trajectory_ate": {
       "mean": 0.2653918673598125,
       "std": 0.13627013644709754,
@@ -64,9 +78,9 @@
       "std": 2.641102004706837,
       "count": 200
     },
-    "trajectory_trans": {
-      "mean": 2.3023561768715397,
-      "std": 0.6650325365332049,
+    "trajectory_trans_pct": {
+      "mean": 18.41389942145612,
+      "std": 1.9730089752800108,
       "count": 200
     },
     "overall_pa": {
@@ -79,16 +93,6 @@
       "std": 0.09440673357341725,
       "count": 200
     },
-    "overall_mdice": {
-      "mean": 0.7410969936840422,
-      "std": 0.09297032605924178,
-      "count": 200
-    },
-    "overall_fwiou": {
-      "mean": 0.8406269881007223,
-      "std": 0.054416089108269464,
-      "count": 200
-    },
     "predicted_pa": {
       "mean": 0.8656022482813259,
       "std": 0.05441918735485919,
@@ -97,16 +101,6 @@
     "predicted_miou": {
       "mean": 0.6062846066488222,
       "std": 0.1125432343113414,
-      "count": 200
-    },
-    "predicted_mdice": {
-      "mean": 0.7008928850972973,
-      "std": 0.11614538957174055,
-      "count": 200
-    },
-    "predicted_fwiou": {
-      "mean": 0.786754465714774,
-      "std": 0.07583082295062092,
       "count": 200
     }
   }

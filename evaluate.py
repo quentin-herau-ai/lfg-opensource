@@ -65,12 +65,13 @@ from lfg.io import Frame, preprocess_frames
 
 CLIP_LENGTH = 6
 IGNORE_LABEL = 255
+TARGET_WIDTH = 518          # model input width; frames keep their aspect and are centre-cropped
+MAX_DEPTH = 80.0            # ground truth beyond this range is ignored
+MIN_VALID_POINTS = 100      # frames with fewer ground-truth pixels are not scored
+MIN_TRAVEL = 1.0            # clips where the vehicle barely moved carry no trajectory signal
 WAYMO_FRONT_CAMERA = 1
 # OpenCV camera axes (x-right, y-down, z-forward) expressed in Waymo's (x-fwd, y-left, z-up).
 OPENCV_TO_WAYMO_CAMERA = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]], float)
-
-# Whether class averages span every class or only those present in a frame.
-SEG_AVERAGE = {"over_all_classes": False}
 
 # The segmentation head's 7 classes, in index order.
 CLASS_NAMES = ["road", "vehicle", "person", "traffic light", "traffic sign", "sky",
@@ -128,17 +129,23 @@ def affine_align(pred: np.ndarray, target: np.ndarray, mask: np.ndarray) -> np.n
     return scale * pred + shift
 
 
-def depth_errors(pred: np.ndarray, target: np.ndarray, mask: np.ndarray) -> tuple[float, float]:
-    """AbsRel and RMSE (metres) over the valid pixels of an already-aligned prediction."""
+def depth_errors(pred: np.ndarray, target: np.ndarray, mask: np.ndarray) -> tuple[float, float, float]:
+    """AbsRel, RMSE (metres) and delta<1.25 over an already-aligned prediction.
+
+    delta1 is the share of pixels whose predicted and true depth are within a factor of 1.25
+    of one another. It says how much of the image is broadly right, which AbsRel and RMSE --
+    both dominated by the worst pixels -- do not.
+    """
     estimate = np.clip(pred[mask], 1e-3, None)
     truth = target[mask]
     abs_rel = float(np.mean(np.abs(estimate - truth) / truth))
     rmse = float(np.sqrt(np.mean((estimate - truth) ** 2)))
-    return abs_rel, rmse
+    ratio = np.maximum(estimate / truth, truth / estimate)
+    return abs_rel, rmse, float(np.mean(ratio < 1.25))
 
 
-def frame_segmentation_metrics(predicted: np.ndarray, truth: np.ndarray) -> tuple[float, float, float, float]:
-    """Per-frame pixel accuracy, mIoU, mDice and frequency-weighted IoU.
+def frame_segmentation_metrics(predicted: np.ndarray, truth: np.ndarray) -> tuple[float, float]:
+    """Per-frame pixel accuracy and mIoU.
 
     Class averages cover the classes present in the prediction or the ground truth of that
     frame, so a class absent from a frame neither helps nor hurts. Averaging these per-frame
@@ -151,24 +158,14 @@ def frame_segmentation_metrics(predicted: np.ndarray, truth: np.ndarray) -> tupl
         return (np.nan,) * 4
 
     accuracy = float((predicted == truth).mean())
-    ious, dices, weights = [], [], []
+    ious = []
     for index in range(classes):
         prediction_mask, truth_mask = predicted == index, truth == index
         union = int((prediction_mask | truth_mask).sum())
-        if union == 0:
-            if SEG_AVERAGE["over_all_classes"]:   # a class absent from both scores zero
-                ious.append(0.0)
-                dices.append(0.0)
-                weights.append(0.0)
+        if union == 0:      # a class in neither the prediction nor the truth is not scored
             continue
-        intersection = int((prediction_mask & truth_mask).sum())
-        ious.append(intersection / union)
-        dices.append(2 * intersection / (int(prediction_mask.sum()) + int(truth_mask.sum())))
-        weights.append(int(truth_mask.sum()) / truth.size)
-    if not ious:
-        return accuracy, np.nan, np.nan, np.nan
-    return (accuracy, float(np.mean(ious)), float(np.mean(dices)),
-            float(np.sum(np.asarray(weights) * np.asarray(ious))))
+        ious.append(int((prediction_mask & truth_mask).sum()) / union)
+    return (accuracy, float(np.mean(ious))) if ious else (accuracy, np.nan)
 
 
 def load_depth_cached(clip: "Clip", slot: int, height: int, width: int,
@@ -197,38 +194,6 @@ def load_depth_cached(clip: "Clip", slot: int, height: int, width: int,
     return depth
 
 
-def accumulate_confusion(predicted: np.ndarray, truth: np.ndarray, into: np.ndarray) -> None:
-    """Add one frame to a class-by-class confusion matrix, skipping void pixels."""
-    classes = len(CLASS_NAMES)
-    valid = (truth != IGNORE_LABEL) & (predicted < classes)
-    predicted, truth = predicted[valid].astype(np.int64), truth[valid].astype(np.int64)
-    into += np.bincount(truth * classes + predicted, minlength=classes ** 2).reshape(classes, classes)
-
-
-def confusion_metrics(confusion: np.ndarray) -> dict[str, float]:
-    """Pixel accuracy, mIoU, mDice and frequency-weighted IoU from a confusion matrix.
-
-    Metrics are computed once over the accumulated matrix rather than averaged per frame,
-    so a class the model rarely gets right is not hidden by the frames where it is absent.
-    """
-    total = confusion.sum()
-    if total == 0:
-        return {"pa": np.nan, "miou": np.nan, "mdice": np.nan, "fwiou": np.nan}
-    true_positive = np.diag(confusion).astype(float)
-    actual, predicted_total = confusion.sum(1).astype(float), confusion.sum(0).astype(float)
-    union = actual + predicted_total - true_positive
-    present = union > 0
-    iou = np.divide(true_positive, union, out=np.zeros_like(union), where=present)
-    dice = np.divide(2 * true_positive, actual + predicted_total,
-                     out=np.zeros_like(union), where=(actual + predicted_total) > 0)
-    return {
-        "pa": float(true_positive.sum() / total),
-        "miou": float(iou[present].mean()),
-        "mdice": float(dice[present].mean()),
-        "fwiou": float((actual[present] / total * iou[present]).sum()),
-    }
-
-
 def umeyama(source: np.ndarray, target: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
     """Similarity transform (scale, rotation, translation) taking `source` points onto `target`."""
     source_mean, target_mean = source.mean(0), target.mean(0)
@@ -244,12 +209,17 @@ def umeyama(source: np.ndarray, target: np.ndarray) -> tuple[float, np.ndarray, 
 
 
 def trajectory_errors(predicted: np.ndarray, truth: np.ndarray) -> tuple[float, float, float]:
-    """ATE (m) plus relative-pose rotation (deg) and translation (m) errors for one clip.
+    """ATE (m), rotation error (deg) and translation error as a share of distance travelled.
 
     Both trajectories are expressed relative to their first frame. Predicted poses are only
-    defined up to a similarity, so a scale is fitted against the ground-truth positions;
-    ATE additionally applies the full similarity before measuring position error, while the
+    defined up to a similarity, so a scale is fitted against the ground-truth positions; ATE
+    additionally applies the full similarity before measuring position error, while the
     relative-pose errors compare each frame's pose against frame 0.
+
+    Translation error in metres grows with how far the vehicle travelled, so the same model
+    scores differently at different frame rates; expressing it as a share of the distance
+    covered is comparable across rates and datasets. Callers should skip clips in which the
+    vehicle was stationary, where that share is undefined.
     """
     relative = lambda poses: np.linalg.inv(poses[0]) @ poses  # noqa: E731
     predicted, truth = relative(predicted), relative(truth)
@@ -262,10 +232,11 @@ def trajectory_errors(predicted: np.ndarray, truth: np.ndarray) -> tuple[float, 
     cosines = (np.trace(residual, axis1=1, axis2=2) - 1.0) / 2.0
     rotation_error = float(np.degrees(np.arccos(np.clip(cosines, -1.0, 1.0))).mean())
 
-    translation_error = float(
-        np.linalg.norm(scale * predicted[1:, :3, 3] - truth[1:, :3, 3], axis=1).mean()
-    )
-    return ate, rotation_error, translation_error
+    # Pooled rather than a mean of per-frame ratios: early frames cover little ground, so
+    # dividing frame by frame lets the first step dominate.
+    offsets = np.linalg.norm(scale * predicted[1:, :3, 3] - truth[1:, :3, 3], axis=1)
+    travelled = np.linalg.norm(truth[1:, :3, 3], axis=1)
+    return ate, rotation_error, float(100.0 * offsets.sum() / travelled.sum())
 
 
 def summarize(values: list[float]) -> dict[str, float]:
@@ -654,7 +625,7 @@ def build_predictor(args: argparse.Namespace):
 
         def predict(images: list[np.ndarray]) -> dict:
             batch = preprocess_frames(
-                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
+                as_frames(images), target_size=TARGET_WIDTH, mode="crop",
                 keep_ratio=False, patch_size=14,
             )
             with torch.inference_mode(), torch.amp.autocast("cuda", dtype=torch.bfloat16):
@@ -672,7 +643,7 @@ def build_predictor(args: argparse.Namespace):
             # Fed at the same input resolution as LFG so the comparison is like for like,
             # rather than at the processor's much larger default.
             batch = preprocess_frames(
-                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
+                as_frames(images), target_size=TARGET_WIDTH, mode="crop",
                 keep_ratio=False, patch_size=14,
             )
             pixels = ((batch - mean) / std).to(args.device)
@@ -692,7 +663,7 @@ def build_predictor(args: argparse.Namespace):
 
         def predict(images: list[np.ndarray]) -> dict:
             batch = preprocess_frames(
-                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
+                as_frames(images), target_size=TARGET_WIDTH, mode="crop",
                 keep_ratio=False, patch_size=14,
             ).unsqueeze(0).to(args.device)
             with torch.inference_mode(), torch.amp.autocast("cuda", dtype=torch.bfloat16):
@@ -710,7 +681,7 @@ def build_predictor(args: argparse.Namespace):
 
         def predict(images: list[np.ndarray]) -> dict:
             batch = preprocess_frames(
-                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
+                as_frames(images), target_size=TARGET_WIDTH, mode="crop",
                 keep_ratio=False, patch_size=14,
             )
             height, width = batch.shape[-2:]
@@ -743,7 +714,7 @@ def build_predictor(args: argparse.Namespace):
 
         def predict(images: list[np.ndarray]) -> dict:
             batch = preprocess_frames(
-                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
+                as_frames(images), target_size=TARGET_WIDTH, mode="crop",
                 keep_ratio=False, patch_size=14,
             ).unsqueeze(0).to(args.device)
             with torch.inference_mode(), torch.amp.autocast("cuda", dtype=torch.bfloat16):
@@ -768,14 +739,13 @@ def build_predictor(args: argparse.Namespace):
     def predict(images: list[np.ndarray]) -> dict:
         return predict_window(
             model, as_frames(images[: config.m]), config, device=args.device,
-            target_size=args.target_size, resize_mode=args.resize_mode, keep_ratio=False,
+            target_size=TARGET_WIDTH, resize_mode="crop", keep_ratio=False,
         )
 
     return predict, config.m, {"model": "lfg", **config.to_dict()}
 
 
 def evaluate(args: argparse.Namespace) -> dict:
-    SEG_AVERAGE["over_all_classes"] = args.seg_average == "all"
     predict, future_start, model_info = build_predictor(args)
     cache_dir = Path(args.cache_dir) if args.cache_dir else None
 
@@ -788,7 +758,7 @@ def evaluate(args: argparse.Namespace) -> dict:
             f"{root} does not look like a {args.dataset} root: missing {', '.join(missing)}. "
             "See the Evaluation section of the README for the expected layout."
         )
-    clips = list(ADAPTERS[args.dataset](root, args.max_depth, args.frame_stride))
+    clips = list(ADAPTERS[args.dataset](root, MAX_DEPTH, args.frame_stride))
     if not clips:
         raise SystemExit(f"No usable {CLIP_LENGTH}-frame clips found under {args.data_root}")
     wanted = [line.strip() for line in Path(args.clip_list).read_text().splitlines() if line.strip()]
@@ -809,19 +779,18 @@ def evaluate(args: argparse.Namespace) -> dict:
         )
 
     clips = sorted((by_name[name] for name in wanted), key=lambda clip: clip.name)
-    print(f"{len(clips)} clips from {args.clip_list} | {args.alignment} alignment")
+    print(f"{len(clips)} clips from {args.clip_list}")
 
-    classes = len(CLASS_NAMES)
-    confusion = {"overall": np.zeros((classes, classes), np.int64),
-                 "predicted": np.zeros((classes, classes), np.int64)}
     scored: dict[str, list[float]] = {k: [] for k in ("overall_absrel", "overall_rmse",
                                                       "predicted_absrel", "predicted_rmse",
                                                       "observed_absrel", "observed_rmse",
+                                                      "overall_delta1", "predicted_delta1",
+                                                      "observed_delta1",
                                                       "trajectory_ate", "trajectory_rot",
-                                                      "trajectory_trans")
+                                                      "trajectory_trans_pct")
                                      + tuple(f"{split}_{metric}"
                                              for split in ("overall", "predicted")
-                                             for metric in ("pa", "miou", "mdice", "fwiou"))}
+                                             for metric in ("pa", "miou"))}
     for clip in tqdm(clips, desc="evaluating"):
         images = clip.load_images()
         outputs = predict(images)
@@ -833,18 +802,21 @@ def evaluate(args: argparse.Namespace) -> dict:
             predicted = None
             slots = CLIP_LENGTH
             source_h, source_w = images[0].shape[:2]
-            width = args.target_size
+            width = TARGET_WIDTH
             height = max(14, round(source_h * (width / source_w) / 14) * 14)
 
         if clip.load_poses is not None and "camera_poses" in outputs:
             try:
                 gt_poses = clip.load_poses()[:slots]
+                relative = np.linalg.inv(gt_poses[0]) @ gt_poses
+                if np.linalg.norm(relative[-1, :3, 3]) < MIN_TRAVEL:
+                    raise KeyError("stationary clip")      # no trajectory to score
                 pred_poses = outputs["camera_poses"][0].float().cpu().numpy()[:slots]
-                ate, rot, trans = trajectory_errors(pred_poses, gt_poses)
+                ate, rot, trans_pct = trajectory_errors(pred_poses, gt_poses)
                 scored["trajectory_ate"].append(ate)
                 scored["trajectory_rot"].append(rot)
-                scored["trajectory_trans"].append(trans)
-            except (KeyError, OSError, ValueError):
+                scored["trajectory_trans_pct"].append(trans_pct)
+            except (KeyError, OSError):     # this clip has no ground-truth poses
                 pass
 
         if clip.load_labels is not None and ("segmentation" in outputs or outputs.get("static")):
@@ -866,65 +838,50 @@ def evaluate(args: argparse.Namespace) -> dict:
                     prediction = clip.load_labels(future_start - 1, height, width)
                 else:
                     prediction = logits[slot].argmax(-1)
-                accumulate_confusion(prediction, labels, confusion["overall"])
                 per_frame_seg.append(frame_segmentation_metrics(prediction, labels))
-                if slot >= future_start:
-                    accumulate_confusion(prediction, labels, confusion["predicted"])
 
             seg = np.array(per_frame_seg, dtype=float) if per_frame_seg else np.zeros((0, 4))
-            for split, rows in (("overall", seg), ("predicted", seg[future_start:])):
+            # The static baseline repeats the last observed frame's labels, so scoring it over
+            # the observed frames would compare that frame against itself. Only the frames it
+            # actually has to stand in for are meaningful.
+            splits = (("predicted", seg[future_start:]),) if outputs.get("static") else \
+                     (("overall", seg), ("predicted", seg[future_start:]))
+            for split, rows in splits:
                 if len(rows) and np.isfinite(rows[:, 0]).any():
-                    for column, metric in enumerate(("pa", "miou", "mdice", "fwiou")):
+                    for column, metric in enumerate(("pa", "miou")):
                         scored[f"{split}_{metric}"].append(np.nanmean(rows[:, column]))
 
         if predicted is None:
             continue
-        truth = [load_depth_cached(clip, slot, height, width, cache_dir, args.max_depth,
+        truth = [load_depth_cached(clip, slot, height, width, cache_dir, MAX_DEPTH,
                                    args.frame_stride)
                  for slot in range(slots)]
         masks = [np.isfinite(gt) & (np.nan_to_num(gt) > 0) for gt in truth]
 
-        if args.alignment == "per-clip":
-            stacked_mask = np.stack(masks)
-            if stacked_mask.sum() < args.min_points:
-                continue
-            aligned = list(
-                affine_align(predicted[:slots], np.nan_to_num(np.stack(truth)), stacked_mask)
-            )
-        else:
-            aligned = [
-                affine_align(predicted[slot], np.nan_to_num(truth[slot]), masks[slot])
-                if masks[slot].sum() >= args.min_points
-                else np.full_like(predicted[slot], np.nan)
-                for slot in range(slots)
-            ]
+        # Point maps are defined up to one scale and shift per clip, so the alignment is
+        # fitted once over the whole clip rather than per frame.
+        stacked_mask = np.stack(masks)
+        if stacked_mask.sum() < MIN_VALID_POINTS:
+            continue
+        aligned = list(affine_align(predicted[:slots], np.nan_to_num(np.stack(truth)), stacked_mask))
 
         per_frame = []
         for slot in range(slots):
-            if masks[slot].sum() < args.min_points or not np.isfinite(aligned[slot]).any():
-                per_frame.append((np.nan, np.nan))
+            if masks[slot].sum() < MIN_VALID_POINTS or not np.isfinite(aligned[slot]).any():
+                per_frame.append((np.nan, np.nan, np.nan))
                 continue
             per_frame.append(depth_errors(aligned[slot], truth[slot], masks[slot]))
 
         errors = np.array(per_frame, dtype=float)
         if not np.isfinite(errors[:, 0]).any():
             continue
-        observed, future = errors[:future_start], errors[future_start:]
-        scored["overall_absrel"].append(np.nanmean(errors[:, 0]))
-        scored["overall_rmse"].append(np.nanmean(errors[:, 1]))
-        if len(observed) and np.isfinite(observed[:, 0]).any():
-            scored["observed_absrel"].append(np.nanmean(observed[:, 0]))
-            scored["observed_rmse"].append(np.nanmean(observed[:, 1]))
-        if len(future) and np.isfinite(future[:, 0]).any():
-            scored["predicted_absrel"].append(np.nanmean(future[:, 0]))
-            scored["predicted_rmse"].append(np.nanmean(future[:, 1]))
+        for split, rows in (("overall", errors), ("observed", errors[:future_start]),
+                            ("predicted", errors[future_start:])):
+            if len(rows) and np.isfinite(rows[:, 0]).any():
+                for column, metric in enumerate(("absrel", "rmse", "delta1")):
+                    scored[f"{split}_{metric}"].append(np.nanmean(rows[:, column]))
 
     results = {name: summarize(values) for name, values in scored.items()}
-    if args.seg_metrics == "dataset":
-        for split, matrix in confusion.items():
-            for metric, value in confusion_metrics(matrix).items():
-                results[f"{split}_{metric}"] = {"mean": value, "std": 0.0,
-                                                "count": int(matrix.sum())}
     return {
         "checkpoint": str(args.checkpoint),
         "dataset": args.dataset,
@@ -933,8 +890,7 @@ def evaluate(args: argparse.Namespace) -> dict:
         "clip_list": args.clip_list,
         "frame_stride": args.frame_stride,
         "cache_dir": args.cache_dir,
-        "alignment": args.alignment,
-        "max_depth": args.max_depth,
+        "max_depth": MAX_DEPTH,
         "model": model_info,
         "metrics": results,
     }
@@ -958,24 +914,6 @@ def parse_args() -> argparse.Namespace:
              "Fixing the clips keeps runs comparable across machines and models.",
     )
     parser.add_argument(
-        "--alignment",
-        choices=["per-clip", "per-frame"],
-        default="per-clip",
-        help="Fit the scale and shift once per clip (default) or independently per frame.",
-    )
-    parser.add_argument(
-        "--seg-average", choices=["present", "all"], default="present",
-        help="Average IoU/Dice over the classes present in a frame (default), or over all "
-             "seven with absent classes scoring zero.",
-    )
-    parser.add_argument(
-        "--seg-metrics",
-        choices=["per-frame", "dataset"],
-        default="per-frame",
-        help="Average segmentation metrics per frame (default) or compute them once over a "
-             "confusion matrix accumulated across the whole run.",
-    )
-    parser.add_argument(
         "--frame-stride",
         type=int,
         default=2,
@@ -989,13 +927,6 @@ def parse_args() -> argparse.Namespace:
         help="Reuse decoded ground-truth depth across runs. Recommended for Waymo, where "
              "reading the LiDAR parquet dominates; results are unchanged either way.",
     )
-    parser.add_argument("--max-depth", type=float, default=80.0, help="Ignore ground truth beyond this range.")
-    parser.add_argument("--min-points", type=int, default=100, help="Minimum valid pixels to score a frame.")
-    parser.add_argument(
-        "--resize-mode", choices=["crop", "pad"], default="crop",
-        help="How frames are fitted to the model input: preserve aspect and crop, or pad.",
-    )
-    parser.add_argument("--target-size", type=int, default=518, help="Inference width; must be divisible by 14.")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--output", default=None, help="Write results JSON here.")
     return parser.parse_args()
@@ -1006,23 +937,27 @@ def main() -> None:
     results = evaluate(args)
     metrics = results["metrics"]
     print(f"\n{results['clips_scored']} clips scored ({results['dataset']})")
-    print(f"{'split':<12}{'AbsRel':>18}{'RMSE (m)':>18}")
-    for split in ("overall", "observed", "predicted"):
-        absrel, rmse = metrics[f"{split}_absrel"], metrics[f"{split}_rmse"]
-        print(f"{split:<12}{absrel['mean']:>10.3f} ±{absrel['std']:<6.3f}{rmse['mean']:>10.2f} ±{rmse['std']:<6.2f}")
+    if metrics["overall_absrel"]["count"]:
+        print(f"{'split':<12}{'AbsRel':>18}{'RMSE (m)':>18}{'delta<1.25':>14}")
+        for split in ("overall", "observed", "predicted"):
+            absrel, rmse = metrics[f"{split}_absrel"], metrics[f"{split}_rmse"]
+            delta = metrics[f"{split}_delta1"]
+            print(f"{split:<12}{absrel['mean']:>10.3f} ±{absrel['std']:<6.3f}"
+                  f"{rmse['mean']:>10.2f} ±{rmse['std']:<6.2f}{delta['mean']:>13.3f}")
 
-    if metrics["overall_pa"]["count"]:
-        print(f"\n{'segmentation':<12}{'PA':>10}{'mIoU':>10}{'mDice':>10}{'FW-IoU':>10}")
-        for split in ("overall", "predicted"):
+    scored_splits = [s for s in ("overall", "predicted") if metrics[f"{s}_pa"]["count"]]
+    if scored_splits:
+        print(f"\n{'segmentation':<12}{'PA':>10}{'mIoU':>10}")
+        for split in scored_splits:
             row = "".join(f"{metrics[f'{split}_{m}']['mean']:>10.3f}"
-                          for m in ("pa", "miou", "mdice", "fwiou"))
+                          for m in ("pa", "miou"))
             print(f"{split:<12}{row}")
 
     if metrics["trajectory_ate"]["count"]:
-        ate, rot, trans = (metrics[f"trajectory_{k}"] for k in ("ate", "rot", "trans"))
-        print(f"\ntrajectory ({ate['count']} clips){'ATE (m)':>13}{'Rot (deg)':>18}{'Trans (m)':>18}")
+        ate, rot, pct = (metrics[f"trajectory_{k}"] for k in ("ate", "rot", "trans_pct"))
+        print(f"\ntrajectory ({ate['count']} clips){'ATE (m)':>13}{'Rot (deg)':>18}{'Trans (%)':>18}")
         print(f"{'':<24}{ate['mean']:>7.2f} ±{ate['std']:<5.2f}{rot['mean']:>10.2f} ±{rot['std']:<6.2f}"
-              f"{trans['mean']:>10.2f} ±{trans['std']:<6.2f}")
+              f"{pct['mean']:>10.1f} ±{pct['std']:<6.1f}")
     if args.output:
         Path(args.output).write_text(json.dumps(results, indent=2))
         print(f"\nWrote {args.output}")
