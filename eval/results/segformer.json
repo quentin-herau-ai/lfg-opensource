@@ -1,7 +1,7 @@
 {
   "checkpoint": "",
   "dataset": "kitti360",
-  "clips_scored": 0,
+  "clips_scored": 200,
   "clips_evaluated": 200,
   "clip_list": "eval/clips/kitti360_200.txt",
   "frame_stride": 5,

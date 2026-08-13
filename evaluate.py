@@ -872,7 +872,7 @@ def evaluate(args: argparse.Namespace) -> dict:
     return {
         "checkpoint": Path(args.checkpoint).name,
         "dataset": args.dataset,
-        "clips_scored": results["overall_absrel"]["count"],
+        "clips_scored": max(entry["count"] for entry in results.values()),
         "clips_evaluated": len(clips),
         "clip_list": args.clip_list,
         "frame_stride": args.frame_stride,
