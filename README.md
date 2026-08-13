@@ -183,8 +183,9 @@ KITTI-360/
 
 #### Waymo Open Dataset
 
-The loader reads the released v2 parquet directly, so no conversion step is needed. Download
-these five perception components, keeping the distributed layout:
+The loader reads the released v2 parquet directly, so no conversion step is needed; this needs
+`pip install pyarrow`. Download these five perception components, keeping the distributed
+layout:
 
 ```text
 waymo_v2/validation/

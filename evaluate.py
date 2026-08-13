@@ -403,8 +403,10 @@ def _kitti360_calibration(root: Path) -> tuple[np.ndarray, np.ndarray]:
     with (root / "calibration" / "perspective.txt").open() as handle:
         for line in handle:
             key, _, values = line.partition(":")
-            if values.strip():
+            try:
                 perspective[key.strip()] = np.array(values.split(), dtype=float)
+            except ValueError:
+                continue        # non-numeric entries, such as the calibration date
     projection = perspective["P_rect_00"].reshape(3, 4)
     rect = np.eye(4)
     rect[:3, :3] = perspective["R_rect_00"].reshape(3, 3)

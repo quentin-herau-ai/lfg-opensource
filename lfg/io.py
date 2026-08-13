@@ -67,14 +67,14 @@ def _is_glob_pattern(value: str) -> bool:
     return any(char in value for char in "*?[]")
 
 
-def load_frame(path: Path, frame_index: int) -> Frame:
+def _load_image(path: Path, frame_index: int) -> Frame:
     rgb = np.asarray(Image.open(path).convert("RGB"))
     return Frame(rgb=rgb, source=str(path), frame_index=frame_index)
 
 
 def _iter_indexed_images(indexed_paths: Iterable[tuple[int, Path]]) -> Iterable[Frame]:
     for index, path in indexed_paths:
-        yield load_frame(path, index)
+        yield _load_image(path, index)
 
 
 def _list_images(directory: Path) -> list[Path]:
