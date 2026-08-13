@@ -827,7 +827,7 @@ def evaluate(args: argparse.Namespace) -> dict:
             except (KeyError, OSError):     # this clip has no ground-truth poses
                 pass
 
-        if clip.load_labels is not None and ("segmentation" in outputs or outputs.get("static")):
+        if clip.load_labels is not None and "segmentation" in outputs:
             raw = outputs["segmentation"][0].permute(0, 3, 1, 2).float()       # (S, C, h, w)
             if raw.shape[-2:] != (height, width):
                 raw = torch.nn.functional.interpolate(
