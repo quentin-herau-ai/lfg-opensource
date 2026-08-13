@@ -1,11 +1,10 @@
 {
-  "checkpoint": "/mnt/data/quentin.herau/hf_release_staging/lfg_sv/lfg_seg_motion_m3n3.pt",
+  "checkpoint": "lfg_seg_motion_m3n3.pt",
   "dataset": "waymo",
   "clips_scored": 200,
   "clips_evaluated": 200,
   "clip_list": "eval/clips/waymo_200.txt",
   "frame_stride": 5,
-  "cache_dir": null,
   "max_depth": 80.0,
   "model": {
     "model": "lfg",

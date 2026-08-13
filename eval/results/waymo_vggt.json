@@ -5,7 +5,6 @@
   "clips_evaluated": 200,
   "clip_list": "eval/clips/waymo_200.txt",
   "frame_stride": 5,
-  "cache_dir": null,
   "max_depth": 80.0,
   "model": {
     "model": "vggt",

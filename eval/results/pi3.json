@@ -1,11 +1,10 @@
 {
-  "checkpoint": "/mnt/data/quentin.herau/.cache/huggingface/hub/models--yyfz233--Pi3/snapshots/ae722e7039287d0c8fde9f11f197f804f44b510c/model.safetensors",
+  "checkpoint": "model.safetensors",
   "dataset": "kitti360",
   "clips_scored": 200,
   "clips_evaluated": 200,
   "clip_list": "eval/clips/kitti360_200.txt",
   "frame_stride": 5,
-  "cache_dir": null,
   "max_depth": 80.0,
   "model": {
     "model": "pi3",

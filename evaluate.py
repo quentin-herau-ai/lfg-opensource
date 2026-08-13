@@ -865,13 +865,12 @@ def evaluate(args: argparse.Namespace) -> dict:
 
     results = {name: summarize(values) for name, values in scored.items()}
     return {
-        "checkpoint": str(args.checkpoint),
+        "checkpoint": Path(args.checkpoint).name,
         "dataset": args.dataset,
         "clips_scored": results["overall_absrel"]["count"],
         "clips_evaluated": len(clips),
         "clip_list": args.clip_list,
         "frame_stride": args.frame_stride,
-        "cache_dir": args.cache_dir,
         "max_depth": MAX_DEPTH,
         "model": model_info,
         "metrics": results,
