@@ -303,10 +303,6 @@ first frame, translation as a share of the distance travelled.
 | VGGT | 6 | 0.06 | 0.37 | 2.0 |
 | **LFG** | 3 | 0.31 | 0.81 | 13.3 |
 
-Seeing only three of the six frames, LFG stays within 0.8 m RMSE of Pi3 on KITTI-360 and 0.7 m on
-Waymo, both of which see all six. The Waymo clips are all of a moving vehicle, since trajectory
-error is undefined when the vehicle is stopped.
-
 ### Conventions
 
 - **Depth** is affine-aligned to the LiDAR once per clip, since point maps carry one unknown
