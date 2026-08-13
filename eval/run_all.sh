@@ -3,21 +3,21 @@
 #
 #   eval/run_all.sh --lfg checkpoints/lfg_seg_motion_m3n3.pt --kitti360 /data/KITTI-360
 #
-# Waymo and the Pi3 baseline are optional; each is evaluated only if you point at it:
+# Waymo is optional, and evaluated only if you point at it:
 #
 #   --waymo /data/waymo_v2/validation      the Waymo split directory
-#   --pi3   /path/to/pi3.safetensors       Pi3 weights, with the pi3 package importable
+#
+# The Pi3 baseline needs the upstream pi3 package importable; its weights download on use.
 #
 # Results land in eval/results/ as JSON, one file per model and dataset.
 set -euo pipefail
 
-LFG=""; KITTI360=""; WAYMO=""; PI3=""; DEVICE="cuda"
+LFG=""; KITTI360=""; WAYMO=""; DEVICE="cuda"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --lfg)      LFG="$2";      shift 2 ;;
     --kitti360) KITTI360="$2"; shift 2 ;;
     --waymo)    WAYMO="$2";    shift 2 ;;
-    --pi3)      PI3="$2";      shift 2 ;;
     --device)   DEVICE="$2";   shift 2 ;;
     *) echo "unknown option: $1" >&2; exit 1 ;;
   esac
@@ -37,7 +37,6 @@ MISSING=0
 [[ -d "$KITTI360" ]]             || missing "KITTI-360 directory" "$KITTI360"
 [[ -d "$KITTI360/data_2d_raw" ]] || missing "KITTI-360 images" "$KITTI360/data_2d_raw"
 [[ -z "$WAYMO" || -d "$WAYMO/camera_image" ]] || missing "Waymo parquet" "$WAYMO/camera_image"
-[[ -z "$PI3"   || -f "$PI3" ]]   || missing "Pi3 weights" "$PI3"
 if [[ "$MISSING" -ne 0 ]]; then
   echo "see the Evaluation section of the README for the expected layout" >&2
   exit 1
@@ -70,11 +69,7 @@ run da3        kitti360 "$KITTI360" kitti360_200.txt da3
 run segformer  kitti360 "$KITTI360" kitti360_200.txt segformer
 run maskformer kitti360 "$KITTI360" kitti360_200.txt maskformer
 run static     kitti360 "$KITTI360" kitti360_200.txt static
-if [[ -n "$PI3" ]]; then
-  run pi3      kitti360 "$KITTI360" kitti360_200.txt pi3        "$PI3"
-else
-  echo "pi3          kitti360  skipped (pass --pi3 with its weights)"
-fi
+run pi3        kitti360 "$KITTI360" kitti360_200.txt pi3
 
 if [[ -n "$WAYMO" ]]; then
   echo
@@ -82,11 +77,7 @@ if [[ -n "$WAYMO" ]]; then
   run lfg  waymo "$WAYMO" waymo_200.txt waymo_lfg  "$LFG"
   run vggt waymo "$WAYMO" waymo_200.txt waymo_vggt
   run da3  waymo "$WAYMO" waymo_200.txt waymo_da3
-  if [[ -n "$PI3" ]]; then
-    run pi3 waymo "$WAYMO" waymo_200.txt waymo_pi3 "$PI3"
-  else
-    echo "pi3          waymo     skipped (pass --pi3 with its weights)"
-  fi
+  run pi3  waymo "$WAYMO" waymo_200.txt waymo_pi3
 fi
 
 echo

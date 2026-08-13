@@ -233,26 +233,25 @@ To reproduce every row of the tables below:
 ```bash
 eval/run_all.sh --lfg checkpoints/lfg_seg_motion_m3n3.pt \
                 --kitti360 /path/to/KITTI-360 \
-                --waymo /path/to/waymo_v2/validation \
-                --pi3 /path/to/pi3.safetensors
+                --waymo /path/to/waymo_v2/validation
 ```
 
-Waymo and Pi3 are optional — omit either flag and those rows are skipped. Individual models run
-through the same harness via `--model`:
+Waymo is optional — omit the flag and those rows are skipped. Individual models run through the
+same harness via `--model`:
 
 | `--model` | Predicts | Extra install |
 |---|---|---|
 | `lfg` (default) | depth, semantics, trajectory | none |
-| `pi3` | depth, trajectory | [Pi3](https://github.com/yyfz/Pi3) on `PYTHONPATH`; pass its weights to `--checkpoint` |
+| `pi3` | depth, trajectory | [Pi3](https://github.com/yyfz/Pi3) on `PYTHONPATH` |
 | `vggt` | depth, trajectory | `pip install git+https://github.com/facebookresearch/vggt.git` |
 | `da3` | depth | `pip install --no-deps git+https://github.com/ByteDance-Seed/Depth-Anything-3.git` |
 | `segformer` | semantics | `pip install transformers` |
 | `maskformer` | semantics | `pip install transformers` |
 | `static` | semantics | none; carries the last observed frame's labels forward |
 
-Baseline weights download automatically on first use, except Pi3, whose checkpoint you pass
-explicitly. `da3` needs `--no-deps` because its declared dependencies pin an old `moviepy` and
-require `xformers`, neither of which this code path uses.
+Baseline weights download automatically on first use; only `--model lfg` takes a `--checkpoint`.
+`da3` needs `--no-deps` because its declared dependencies pin an old `moviepy` and require
+`xformers`, neither of which this code path uses.
 
 ### Results
 

@@ -34,7 +34,7 @@ Examples:
   python evaluate.py --checkpoint checkpoints/lfg_seg_motion_m3n3.pt \
       --dataset kitti360 --data-root /data/KITTI-360
 
-  python evaluate.py --model pi3 --checkpoint /path/to/pi3.safetensors \
+  python evaluate.py --model pi3 \
       --dataset waymo --data-root /data/waymo_v2/validation \
       --clip-list eval/clips/waymo_200.txt
 """
@@ -509,6 +509,7 @@ def load_pi3_baseline(weights: str, device: str):
     """The pi3 teacher, which is given every frame of the clip rather than only the history.
 
     Needs the upstream pi3 package (https://github.com/yyfz/Pi3); it is not vendored here.
+    Weights are downloaded from the Hub unless a local file is given.
     """
     try:
         from pi3.models.pi3 import Pi3
@@ -519,6 +520,10 @@ def load_pi3_baseline(weights: str, device: str):
         ) from exc
 
     model = Pi3()
+    if not weights:
+        from huggingface_hub import snapshot_download
+
+        weights = str(Path(snapshot_download("yyfz233/Pi3")) / "model.safetensors")
     if weights.endswith(".safetensors"):
         from safetensors.torch import load_file
 
@@ -589,7 +594,7 @@ def as_frames(images: list[np.ndarray]) -> list[Frame]:
             for index, image in enumerate(images)]
 
 
-NEEDS_CHECKPOINT = {"lfg", "pi3"}
+NEEDS_CHECKPOINT = {"lfg"}
 SEGMENTATION_ONLY = {"segformer", "maskformer", "static"}
 
 
@@ -879,7 +884,11 @@ def evaluate(args: argparse.Namespace) -> dict:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--checkpoint", default="", help="Path to the model weights.")
+    parser.add_argument(
+        "--checkpoint",
+        default="",
+        help="Path to the model weights. Required for lfg; baselines fetch their own.",
+    )
     parser.add_argument(
         "--model",
         choices=["lfg", "pi3", "vggt", "da3", "segformer", "maskformer", "static"],
