@@ -21,20 +21,14 @@ them the "predicted" split simply names the same frames LFG had to extrapolate. 
 are reported over all frames ("overall"), the frames the model observed ("observed") and
 the frames it had to predict ("predicted").
 
-  depth       AbsRel and RMSE in metres against LiDAR, after a least-squares scale and
-              shift alignment. Point maps are only defined up to one scale and shift per
-              clip, so the fit is per clip by default; --alignment per-frame is available
-              and moves AbsRel by under 0.01.
-  semantics   pixel accuracy, mIoU, mDice and frequency-weighted IoU over seven classes.
-              Averaged per frame over the classes present in that frame by default;
-              --seg-average all instead averages over all seven, scoring absent classes
-              zero, and --seg-metrics dataset accumulates one confusion matrix instead.
-  trajectory  ATE in metres after a similarity alignment, plus rotation (deg) and
-              translation (m) error of each frame's pose relative to the first.
+  depth       AbsRel, RMSE (m) and delta<1.25 against LiDAR, after a least-squares scale
+              and shift alignment fitted once per clip.
+  semantics   pixel accuracy and mIoU over seven classes, averaged per frame over the
+              classes present in that frame.
+  trajectory  ATE (m) after a similarity alignment, plus rotation (deg) and translation
+              (% of distance travelled) error relative to the first frame.
 
-Clips come from a list file (see eval/clips/), one `<sequence>:<first frame>` per line, so a
-run is pinned to an exact, inspectable set rather than depending on which sequences happen to
-be present locally.
+Clips come from a list file (see eval/clips/), one `<sequence>:<first frame>` per line.
 
 Examples:
   python evaluate.py --checkpoint checkpoints/lfg_seg_motion_m3n3.pt \
@@ -130,12 +124,7 @@ def affine_align(pred: np.ndarray, target: np.ndarray, mask: np.ndarray) -> np.n
 
 
 def depth_errors(pred: np.ndarray, target: np.ndarray, mask: np.ndarray) -> tuple[float, float, float]:
-    """AbsRel, RMSE (metres) and delta<1.25 over an already-aligned prediction.
-
-    delta1 is the share of pixels whose predicted and true depth are within a factor of 1.25
-    of one another. It says how much of the image is broadly right, which AbsRel and RMSE --
-    both dominated by the worst pixels -- do not.
-    """
+    """AbsRel, RMSE (metres) and delta<1.25 over an already-aligned prediction."""
     estimate = np.clip(pred[mask], 1e-3, None)
     truth = target[mask]
     abs_rel = float(np.mean(np.abs(estimate - truth) / truth))
@@ -148,14 +137,13 @@ def frame_segmentation_metrics(predicted: np.ndarray, truth: np.ndarray) -> tupl
     """Per-frame pixel accuracy and mIoU.
 
     Class averages cover the classes present in the prediction or the ground truth of that
-    frame, so a class absent from a frame neither helps nor hurts. Averaging these per-frame
-    values across clips is the convention that best matches the published Table 1.
+    frame, so a class absent from a frame neither helps nor hurts.
     """
     classes = len(CLASS_NAMES)
     valid = (truth != IGNORE_LABEL) & (predicted < classes)
     predicted, truth = predicted[valid], truth[valid]
     if predicted.size == 0:
-        return (np.nan,) * 4
+        return np.nan, np.nan
 
     accuracy = float((predicted == truth).mean())
     ious = []
@@ -172,16 +160,12 @@ def load_depth_cached(clip: "Clip", slot: int, height: int, width: int,
                       cache_dir: Path | None, max_depth: float, stride: int) -> np.ndarray:
     """Ground-truth depth for one frame, reusing a cached copy when one is available.
 
-    Decoding ground truth is the slowest part of a run -- Waymo's LiDAR lives inside large
-    parquet columns -- and every model evaluated on the same clips repeats it. The cache
-    stores what `Clip.load_depth` returned, so cached and uncached runs agree by construction.
-    Anything that changes the result is part of the key.
+    Decoding ground truth is the slowest part of a run and every model repeats it over the
+    same clips. Anything that changes the depth map is part of the key.
     """
     if cache_dir is None:
         return clip.load_depth(slot, height, width)
 
-    # Everything that changes the depth map belongs in the key: a clip name plus slot means
-    # different source frames at different strides.
     key = f"{clip.name.replace('/', '_')}_s{stride}_{slot}_{height}x{width}_{max_depth:g}.npz"
     path = cache_dir / key
     if path.exists():
@@ -216,10 +200,8 @@ def trajectory_errors(predicted: np.ndarray, truth: np.ndarray) -> tuple[float, 
     additionally applies the full similarity before measuring position error, while the
     relative-pose errors compare each frame's pose against frame 0.
 
-    Translation error in metres grows with how far the vehicle travelled, so the same model
-    scores differently at different frame rates; expressing it as a share of the distance
-    covered is comparable across rates and datasets. Callers should skip clips in which the
-    vehicle was stationary, where that share is undefined.
+    Translation error is a share of the distance covered, which stays comparable across
+    frame rates and datasets. Callers should skip stationary clips, where it is undefined.
     """
     relative = lambda poses: np.linalg.inv(poses[0]) @ poses  # noqa: E731
     predicted, truth = relative(predicted), relative(truth)
@@ -702,8 +684,7 @@ def build_predictor(args: argparse.Namespace):
         return predict, CLIP_LENGTH // 2, {"model": "maskformer", "frames_seen": CLIP_LENGTH}
 
     if args.model == "static":
-        # No network: the observed frames' labels are carried forward unchanged, which is
-        # the paper's "static" reference for how much of the future is simply the present.
+        # No network: the observed frames' labels are carried forward unchanged.
         def predict(images: list[np.ndarray]) -> dict:
             return {"static": True}
 
@@ -843,9 +824,8 @@ def evaluate(args: argparse.Namespace) -> dict:
                 per_frame_seg.append(frame_segmentation_metrics(prediction, labels))
 
             seg = np.array(per_frame_seg, dtype=float) if per_frame_seg else np.zeros((0, 4))
-            # The static baseline repeats the last observed frame's labels, so scoring it over
-            # the observed frames would compare that frame against itself. Only the frames it
-            # actually has to stand in for are meaningful.
+            # The static baseline repeats the last observed frame's labels, so scoring the
+            # observed frames would compare that frame against itself.
             splits = (("predicted", seg[future_start:]),) if outputs.get("static") else \
                      (("overall", seg), ("predicted", seg[future_start:]))
             for split, rows in splits:
@@ -912,22 +892,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--clip-list",
         default="eval/clips/kitti360_200.txt",
-        help="File of clip names to evaluate, one per line, formatted <sequence>:<first frame>. "
-             "Fixing the clips keeps runs comparable across machines and models.",
+        help="File of clip names, one per line, formatted <sequence>:<first frame>.",
     )
     parser.add_argument(
         "--frame-stride",
         type=int,
         default=5,
-        help="Spacing between the six frames of a clip, in source frames. Both datasets record "
-             "at 10 Hz, so the default of 5 gives a 2 Hz clip, the rate the reported results "
-             "use and one of the rates the released checkpoint was trained on.",
+        help="Spacing between the six frames of a clip, in source frames. Both datasets "
+             "record at 10 Hz, so 5 gives a 2 Hz clip.",
     )
     parser.add_argument(
         "--cache-dir",
         default=None,
-        help="Reuse decoded ground-truth depth across runs. Recommended for Waymo, where "
-             "reading the LiDAR parquet dominates; results are unchanged either way.",
+        help="Reuse decoded ground-truth depth across runs. Recommended for Waymo.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--output", default=None, help="Write results JSON here.")
