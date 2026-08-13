@@ -689,9 +689,29 @@ def build_predictor(args: argparse.Namespace):
         return predict, CLIP_LENGTH // 2, {"model": "maskformer", "frames_seen": CLIP_LENGTH}
 
     if args.model == "static":
-        # No network: the observed frames' labels are carried forward unchanged.
+        # No prediction of its own: SegFormer segments the last observed frame and that map
+        # stands in for every future frame, measuring how much of the future is the present.
+        processor, model = load_segformer_baseline(args.device)
+
+        mean = torch.tensor(processor.image_mean).view(1, 3, 1, 1)
+        std = torch.tensor(processor.image_std).view(1, 3, 1, 1)
+
         def predict(images: list[np.ndarray]) -> dict:
-            return {"static": True}
+            observed = CLIP_LENGTH // 2
+            batch = preprocess_frames(
+                as_frames(images[:observed]), target_size=TARGET_WIDTH, mode="crop",
+                keep_ratio=False, patch_size=14,
+            )
+            pixels = ((batch - mean) / std).to(args.device)
+            with torch.inference_mode():
+                logits = model(pixel_values=pixels).logits
+            classes = torch.full(
+                (logits.shape[0], len(CLASS_NAMES), *logits.shape[-2:]), -1e4, device=logits.device
+            )
+            for train_id, index in CITYSCAPES_TRAIN_ID_TO_CLASS.items():
+                classes[:, index] = torch.maximum(classes[:, index], logits[:, train_id])
+            frozen = classes[observed - 1].expand(CLIP_LENGTH, -1, -1, -1)
+            return {"segmentation": frozen.permute(0, 2, 3, 1).unsqueeze(0), "static": True}
 
         return predict, CLIP_LENGTH // 2, {"model": "static", "frames_seen": CLIP_LENGTH // 2}
 
@@ -808,29 +828,24 @@ def evaluate(args: argparse.Namespace) -> dict:
                 pass
 
         if clip.load_labels is not None and ("segmentation" in outputs or outputs.get("static")):
-            logits = None
-            if not outputs.get("static"):
-                raw = outputs["segmentation"][0].permute(0, 3, 1, 2).float()   # (S, C, h, w)
-                if raw.shape[-2:] != (height, width):
-                    raw = torch.nn.functional.interpolate(
-                        raw, size=(height, width), mode="bilinear", align_corners=False
-                    )
-                logits = raw.permute(0, 2, 3, 1).cpu().numpy()[:slots]
+            raw = outputs["segmentation"][0].permute(0, 3, 1, 2).float()       # (S, C, h, w)
+            if raw.shape[-2:] != (height, width):
+                raw = torch.nn.functional.interpolate(
+                    raw, size=(height, width), mode="bilinear", align_corners=False
+                )
+            logits = raw.permute(0, 2, 3, 1).cpu().numpy()[:slots]
             per_frame_seg = []
             for slot in range(slots):
                 try:
                     labels = clip.load_labels(slot, height, width)
                 except (OSError, ValueError):
                     continue
-                if logits is None:  # static: carry the last observed frame's labels forward
-                    prediction = clip.load_labels(future_start - 1, height, width)
-                else:
-                    prediction = logits[slot].argmax(-1)
+                prediction = logits[slot].argmax(-1)
                 per_frame_seg.append(frame_segmentation_metrics(prediction, labels))
 
             seg = np.array(per_frame_seg, dtype=float) if per_frame_seg else np.zeros((0, 4))
-            # The static baseline repeats the last observed frame's labels, so scoring the
-            # observed frames would compare that frame against itself.
+            # The static baseline repeats its own frame-3 output, so scoring the observed
+            # frames would just restate the SegFormer row.
             splits = (("predicted", seg[future_start:]),) if outputs.get("static") else \
                      (("overall", seg), ("predicted", seg[future_start:]))
             for split, rows in splits:

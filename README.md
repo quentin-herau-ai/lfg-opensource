@@ -249,7 +249,7 @@ same harness via `--model`:
 | `da3` | depth | `pip install --no-deps git+https://github.com/ByteDance-Seed/Depth-Anything-3.git` |
 | `segformer` | semantics | `pip install transformers` |
 | `maskformer` | semantics | `pip install transformers` |
-| `static` | semantics | none; carries the last observed frame's labels forward |
+| `static` | semantics | `pip install transformers`; freezes SegFormer's frame-3 output |
 
 Baseline weights download automatically on first use; only `--model lfg` takes a `--checkpoint`.
 `da3` needs `--no-deps` because its declared dependencies pin an old `moviepy` and require
@@ -309,7 +309,7 @@ first frame, translation as a share of the distance travelled.
 
 | Model | Frames seen | Split | PA | mIoU |
 |---|---|---|---|---|
-| Static (labels carried forward) | 3 | predicted | 0.928 | 0.739 |
+| Static (SegFormer, frame 3 carried forward) | 3 | predicted | 0.895 | 0.582 |
 | MaskFormer | 6 | overall | 0.938 | 0.626 |
 | SegFormer | 6 | overall | 0.950 | 0.695 |
 | **LFG** | 3 | overall | 0.933 | 0.716 |
@@ -319,7 +319,7 @@ first frame, translation as a share of the distance travelled.
 
 | Model | Frames seen | Split | PA | mIoU |
 |---|---|---|---|---|
-| Static (labels carried forward) | 3 | predicted | 0.822 | 0.519 |
+| Static (SegFormer, frame 3 carried forward) | 3 | predicted | 0.806 | 0.448 |
 | MaskFormer | 6 | overall | 0.938 | 0.623 |
 | SegFormer | 6 | overall | 0.952 | 0.706 |
 | **LFG** | 3 | overall | 0.902 | 0.665 |
