@@ -2,9 +2,10 @@
   "checkpoint": "",
   "dataset": "kitti360",
   "clips_scored": 200,
-  "clips_requested": 200,
-  "seed": null,
-  "clip_list": "/tmp/claude-4011/-mnt-data-quentin-herau/2b6836a9-901a-49c8-a1fd-3a2fc0350bdf/scratchpad/final_k360.txt",
+  "clips_evaluated": 200,
+  "clip_list": "eval/clips/kitti360_200.txt",
+  "frame_stride": 5,
+  "cache_dir": null,
   "alignment": "per-clip",
   "max_depth": 80.0,
   "model": {
@@ -13,48 +14,48 @@
   },
   "metrics": {
     "overall_absrel": {
-      "mean": 0.10271620643635591,
-      "std": 0.043660166754448414,
+      "mean": 0.10028724128380417,
+      "std": 0.032892366279453286,
       "count": 200
     },
     "overall_rmse": {
-      "mean": 2.8800365097324048,
-      "std": 1.0817587039170473,
+      "mean": 2.7831823814411956,
+      "std": 0.9055369816931768,
       "count": 200
     },
     "predicted_absrel": {
-      "mean": 0.09929716160520911,
-      "std": 0.042306436209819956,
+      "mean": 0.09073853661616642,
+      "std": 0.033339585324195425,
       "count": 200
     },
     "predicted_rmse": {
-      "mean": 2.9079013845324515,
-      "std": 1.1134572997216312,
+      "mean": 2.8747541559735934,
+      "std": 1.038509553882962,
       "count": 200
     },
     "observed_absrel": {
-      "mean": 0.1061352512675027,
-      "std": 0.04693300909828314,
+      "mean": 0.10983594595144193,
+      "std": 0.03808139053455709,
       "count": 200
     },
     "observed_rmse": {
-      "mean": 2.8521716349323594,
-      "std": 1.076024638113253,
+      "mean": 2.691610606908798,
+      "std": 0.9312525850543383,
       "count": 200
     },
     "trajectory_ate": {
-      "mean": 0.027997888851084757,
-      "std": 0.01590800902931848,
+      "mean": 0.19631119670236974,
+      "std": 0.11255046095420697,
       "count": 200
     },
     "trajectory_rot": {
-      "mean": 0.3611426528082808,
-      "std": 0.3509550922090578,
+      "mean": 1.3660443577955947,
+      "std": 1.5612355955511121,
       "count": 200
     },
     "trajectory_trans": {
-      "mean": 0.2549935284407326,
-      "std": 0.06783986704053441,
+      "mean": 1.346417860635258,
+      "std": 0.37991083871539444,
       "count": 200
     },
     "overall_pa": {

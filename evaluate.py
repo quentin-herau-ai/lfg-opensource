@@ -160,6 +160,32 @@ def frame_segmentation_metrics(predicted: np.ndarray, truth: np.ndarray) -> tupl
             float(np.sum(np.asarray(weights) * np.asarray(ious))))
 
 
+def load_depth_cached(clip: "Clip", slot: int, height: int, width: int,
+                      cache_dir: Path | None, max_depth: float, stride: int) -> np.ndarray:
+    """Ground-truth depth for one frame, reusing a cached copy when one is available.
+
+    Decoding ground truth is the slowest part of a run -- Waymo's LiDAR lives inside large
+    parquet columns -- and every model evaluated on the same clips repeats it. The cache
+    stores what `Clip.load_depth` returned, so cached and uncached runs agree by construction.
+    Anything that changes the result is part of the key.
+    """
+    if cache_dir is None:
+        return clip.load_depth(slot, height, width)
+
+    # Everything that changes the depth map belongs in the key: a clip name plus slot means
+    # different source frames at different strides.
+    key = f"{clip.name.replace('/', '_')}_s{stride}_{slot}_{height}x{width}_{max_depth:g}.npz"
+    path = cache_dir / key
+    if path.exists():
+        with np.load(path) as stored:
+            return stored["depth"]
+
+    depth = clip.load_depth(slot, height, width)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(path, depth=depth)
+    return depth
+
+
 def accumulate_confusion(predicted: np.ndarray, truth: np.ndarray, into: np.ndarray) -> None:
     """Add one frame to a class-by-class confusion matrix, skipping void pixels."""
     classes = len(CLASS_NAMES)
@@ -337,7 +363,7 @@ def _waymo_depth(root, segment, stamp, camera_size, intrinsics, out_hw, max_dept
                              depth[keep], (height, width), out_hw)
 
 
-def waymo_clips(root: Path, max_depth: float) -> Iterator[Clip]:
+def waymo_clips(root: Path, max_depth: float, stride: int = 1) -> Iterator[Clip]:
     """Waymo Open Dataset v2, read from the released parquet components.
 
     Layout: <root>/{camera_image,lidar,lidar_camera_projection,camera_calibration,
@@ -358,8 +384,8 @@ def waymo_clips(root: Path, max_depth: float) -> Iterator[Clip]:
         front = images.filter(pc.equal(images.column("key.camera_name"), WAYMO_FRONT_CAMERA))
         stamps = sorted(front.column("key.frame_timestamp_micros").to_pylist())
 
-        for start in range(len(stamps) - CLIP_LENGTH + 1):
-            window = tuple(stamps[start : start + CLIP_LENGTH])
+        for start in range(len(stamps) - stride * (CLIP_LENGTH - 1)):
+            window = tuple(stamps[start + stride * step] for step in range(CLIP_LENGTH))
 
             def load_images(window=window, segment=segment) -> list[np.ndarray]:
                 table = _waymo_arrow(root, "camera_image", segment,
@@ -405,7 +431,7 @@ def _kitti360_calibration(root: Path) -> tuple[np.ndarray, np.ndarray]:
     return projection, rect @ np.linalg.inv(velo_from_cam)
 
 
-def kitti360_clips(root: Path, max_depth: float) -> Iterator[Clip]:
+def kitti360_clips(root: Path, max_depth: float, stride: int = 1) -> Iterator[Clip]:
     """KITTI-360 in its official layout, LiDAR projected into the left perspective camera.
 
     Layout: data_2d_raw/<drive>/image_00/data_rect/<idx>.png
@@ -420,9 +446,10 @@ def kitti360_clips(root: Path, max_depth: float) -> Iterator[Clip]:
             continue
         has_lidar = velodyne_dir.is_dir()
         indices = sorted(int(p.stem) for p in image_dir.glob("*.png"))
-        for start in range(len(indices) - CLIP_LENGTH + 1):
-            window = indices[start : start + CLIP_LENGTH]
-            if window != list(range(window[0], window[0] + CLIP_LENGTH)):
+        available = set(indices)
+        for first in indices:
+            window = [first + stride * step for step in range(CLIP_LENGTH)]
+            if not available.issuperset(window):
                 continue
             if has_lidar and not all((velodyne_dir / f"{i:010d}.bin").exists() for i in window):
                 continue
@@ -593,6 +620,31 @@ def build_predictor(args: argparse.Namespace):
 
         return predict, CLIP_LENGTH // 2, {"model": "segformer", "frames_seen": CLIP_LENGTH}
 
+    if args.model == "maskformer":
+        processor, model = load_maskformer_baseline(args.device)
+        mean = torch.tensor(processor.image_mean).view(1, 3, 1, 1)
+        std = torch.tensor(processor.image_std).view(1, 3, 1, 1)
+
+        def predict(images: list[np.ndarray]) -> dict:
+            batch = preprocess_frames(
+                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
+                keep_ratio=False, patch_size=14,
+            )
+            height, width = batch.shape[-2:]
+            with torch.inference_mode():
+                outputs = model(pixel_values=((batch - mean) / std).to(args.device))
+            maps = processor.post_process_semantic_segmentation(
+                outputs, target_sizes=[(height, width)] * len(images))
+            # post-processing returns label maps, so express them as logits for the scorer
+            logits = torch.zeros(len(images), height, width, len(CLASS_NAMES))
+            for frame, labels in enumerate(maps):
+                labels = labels.cpu()
+                for train_id, index in CITYSCAPES_TRAIN_ID_TO_CLASS.items():
+                    logits[frame, :, :, index][labels == train_id] = 1.0
+            return {"segmentation": logits.unsqueeze(0)}
+
+        return predict, CLIP_LENGTH // 2, {"model": "maskformer", "frames_seen": CLIP_LENGTH}
+
     if args.model == "static":
         # No network: the observed frames' labels are carried forward unchanged, which is
         # the paper's "static" reference for how much of the future is simply the present.
@@ -659,6 +711,15 @@ def load_segformer_baseline(device: str):
             SegformerForSemanticSegmentation.from_pretrained(name).eval().to(device))
 
 
+def load_maskformer_baseline(device: str):
+    """MaskFormer trained on Cityscapes, given every RGB frame of the clip."""
+    from transformers import MaskFormerForInstanceSegmentation, MaskFormerImageProcessor
+
+    name = "facebook/maskformer-resnet101-cityscapes"
+    return (MaskFormerImageProcessor.from_pretrained(name),
+            MaskFormerForInstanceSegmentation.from_pretrained(name).eval().to(device))
+
+
 def load_vggt_baseline(device: str):
     """VGGT, a depth/pose baseline that -- like pi3 -- is given every frame of the clip."""
     try:
@@ -674,6 +735,7 @@ def load_vggt_baseline(device: str):
 def evaluate(args: argparse.Namespace) -> dict:
     SEG_AVERAGE["over_all_classes"] = args.seg_average == "all"
     predict, future_start, model_info = build_predictor(args)
+    cache_dir = Path(args.cache_dir) if args.cache_dir else None
 
     root = Path(args.data_root)
     expected = {"kitti360": ("data_2d_raw", "calibration"),
@@ -684,7 +746,7 @@ def evaluate(args: argparse.Namespace) -> dict:
             f"{root} does not look like a {args.dataset} root: missing {', '.join(missing)}. "
             "See the Evaluation section of the README for the expected layout."
         )
-    clips = list(ADAPTERS[args.dataset](root, args.max_depth))
+    clips = list(ADAPTERS[args.dataset](root, args.max_depth, args.frame_stride))
     if not clips:
         raise SystemExit(f"No usable {CLIP_LENGTH}-frame clips found under {args.data_root}")
     wanted = [line.strip() for line in Path(args.clip_list).read_text().splitlines() if line.strip()]
@@ -696,7 +758,9 @@ def evaluate(args: argparse.Namespace) -> dict:
             f"{len(missing)} of {len(wanted)} clips in {args.clip_list} are not under "
             f"{root}. Sequences needed: {', '.join(sequences)}"
         )
-    clips = [by_name[name] for name in wanted]
+    # Score sequence by sequence: the metrics are order-independent, but reading a clip is far
+    # cheaper when the sequence it belongs to is already the one held in memory.
+    clips = sorted((by_name[name] for name in wanted), key=lambda clip: clip.name)
     print(f"{len(clips)} clips from {args.clip_list} | {args.alignment} alignment")
 
     classes = len(CLASS_NAMES)
@@ -767,7 +831,9 @@ def evaluate(args: argparse.Namespace) -> dict:
 
         if predicted is None:
             continue
-        truth = [clip.load_depth(slot, height, width) for slot in range(slots)]
+        truth = [load_depth_cached(clip, slot, height, width, cache_dir, args.max_depth,
+                                   args.frame_stride)
+                 for slot in range(slots)]
         masks = [np.isfinite(gt) & (np.nan_to_num(gt) > 0) for gt in truth]
 
         if args.alignment == "per-clip":
@@ -817,6 +883,8 @@ def evaluate(args: argparse.Namespace) -> dict:
         "clips_scored": results["overall_absrel"]["count"],
         "clips_evaluated": len(clips),
         "clip_list": args.clip_list,
+        "frame_stride": args.frame_stride,
+        "cache_dir": args.cache_dir,
         "alignment": args.alignment,
         "max_depth": args.max_depth,
         "model": model_info,
@@ -829,7 +897,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint", default="", help="Path to the model weights.")
     parser.add_argument(
         "--model",
-        choices=["lfg", "pi3", "vggt", "segformer", "static"],
+        choices=["lfg", "pi3", "vggt", "segformer", "maskformer", "static"],
         default="lfg",
         help="lfg (default) sees only the history; the pi3 baseline is given every frame.",
     )
@@ -858,6 +926,20 @@ def parse_args() -> argparse.Namespace:
         default="per-frame",
         help="Average segmentation metrics per frame (default) or compute them once over a "
              "confusion matrix accumulated across the whole run.",
+    )
+    parser.add_argument(
+        "--frame-stride",
+        type=int,
+        default=2,
+        help="Spacing between the six frames of a clip, in source frames. Both datasets record "
+             "at 10 Hz, so the default of 2 gives a 5 Hz clip -- one of the rates the released "
+             "checkpoint was trained on.",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help="Reuse decoded ground-truth depth across runs. Recommended for Waymo, where "
+             "reading the LiDAR parquet dominates; results are unchanged either way.",
     )
     parser.add_argument("--max-depth", type=float, default=80.0, help="Ignore ground truth beyond this range.")
     parser.add_argument("--min-points", type=int, default=100, help="Minimum valid pixels to score a frame.")
