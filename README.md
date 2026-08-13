@@ -165,12 +165,10 @@ trajectory. Both require registration on their respective sites.
 
 #### KITTI-360
 
-Follow the download
-instructions on the official site to obtain the perspective images, Velodyne scans,
-calibrations, vehicle poses and 2D semantic labels, and unpack them into a single dataset
-root. The clip list shipped with this repo covers sequences `2013_05_28_drive_0000_sync` and
-`2013_05_28_drive_0002_sync` (~50 GB). The sequences a clip list needs are always its name
-prefixes, so `cut -d: -f1 eval/clips/kitti360_200.txt | sort -u` lists them.
+Follow the download instructions on the official site to obtain the perspective images,
+Velodyne scans, calibrations, vehicle poses and 2D semantic labels, and unpack them into a
+single dataset root. The shipped clip list covers sequences `2013_05_28_drive_0000_sync` and
+`2013_05_28_drive_0002_sync` (~50 GB).
 
 ```text
 KITTI-360/
@@ -196,12 +194,8 @@ waymo_v2/validation/
 ```
 
 The shipped clip list spans 42 `validation` segments, stratified over the split's time-of-day,
-location and weather conditions (~24 GB for the five components). List exactly which ones you
-need with:
-
-```bash
-cut -d: -f1 eval/clips/waymo_200.txt | sort -u
-```
+location and weather conditions (~24 GB for the five components). The segment names are the
+prefixes in `eval/clips/waymo_200.txt`.
 
 ### Usage
 
