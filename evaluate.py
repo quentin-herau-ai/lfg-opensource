@@ -89,6 +89,17 @@ CITYSCAPES_LABEL_TO_CLASS = {
 }
 
 
+# SegFormer is trained on Cityscapes train ids; this is the same grouping the LFG
+# segmentation head was distilled with.
+CITYSCAPES_TRAIN_ID_TO_CLASS = {
+    0: 0,                                              # road
+    6: 3, 7: 4, 10: 5,                                 # traffic light, traffic sign, sky
+    11: 2, 12: 2,                                      # person, rider
+    13: 1, 14: 1, 15: 1, 16: 1, 17: 1, 18: 1,          # car/truck/bus/train/motorcycle/bicycle
+    1: 6, 2: 6, 3: 6, 4: 6, 5: 6, 8: 6, 9: 6,          # sidewalk/building/wall/fence/pole/vegetation/terrain
+}
+
+
 @dataclass
 class Clip:
     """One evaluation clip: frame images plus a lazy loader for ground-truth depth."""
@@ -562,6 +573,59 @@ def load_pi3_baseline(weights: str, device: str):
     return model.eval().to(device)
 
 
+def load_segformer_baseline(device: str):
+    """The SegFormer teacher, given every RGB frame of the clip."""
+    from transformers import SegformerForSemanticSegmentation, SegformerImageProcessor
+
+    name = "nvidia/segformer-b5-finetuned-cityscapes-1024-1024"
+    return (SegformerImageProcessor.from_pretrained(name),
+            SegformerForSemanticSegmentation.from_pretrained(name).eval().to(device))
+
+
+def load_maskformer_baseline(device: str):
+    """MaskFormer trained on Cityscapes, given every RGB frame of the clip."""
+    from transformers import MaskFormerForInstanceSegmentation, MaskFormerImageProcessor
+
+    name = "facebook/maskformer-resnet101-cityscapes"
+    return (MaskFormerImageProcessor.from_pretrained(name),
+            MaskFormerForInstanceSegmentation.from_pretrained(name).eval().to(device))
+
+
+def load_da3_baseline(weights: str, device: str):
+    """Depth Anything 3, a depth-only baseline given every frame of the clip.
+
+    Built from the released config rather than the package's high-level API, which pulls in
+    video-export dependencies this script does not need.
+    """
+    try:
+        from depth_anything_3.cfg import create_object
+    except ImportError as exc:  # pragma: no cover - depends on an optional package
+        raise SystemExit(
+            "The da3 baseline needs the depth-anything-3 package "
+            "(pip install --no-deps git+https://github.com/ByteDance-Seed/Depth-Anything-3.git)."
+        ) from exc
+    from huggingface_hub import snapshot_download
+    from safetensors.torch import load_file
+
+    path = Path(weights) if weights else Path(snapshot_download("depth-anything/DA3METRIC-LARGE"))
+    model = create_object(json.loads((path / "config.json").read_text())["config"])
+    state = load_file(path / "model.safetensors")
+    model.load_state_dict({key.removeprefix("model."): value for key, value in state.items()})
+    return model.eval().to(device)
+
+
+def load_vggt_baseline(device: str):
+    """VGGT, a depth/pose baseline that -- like pi3 -- is given every frame of the clip."""
+    try:
+        from vggt.models.vggt import VGGT
+    except ImportError as exc:  # pragma: no cover - depends on an optional package
+        raise SystemExit(
+            "The vggt baseline needs the vggt package "
+            "(pip install git+https://github.com/facebookresearch/vggt.git)."
+        ) from exc
+    return VGGT.from_pretrained("facebook/VGGT-1B").eval().to(device)
+
+
 def as_frames(images: list[np.ndarray]) -> list[Frame]:
     """Wrap decoded RGB arrays in the Frame records the preprocessing expects."""
     return [Frame(rgb=image, source=f"frame_{index}", frame_index=index)
@@ -569,6 +633,7 @@ def as_frames(images: list[np.ndarray]) -> list[Frame]:
 
 
 NEEDS_CHECKPOINT = {"lfg", "pi3"}
+SEGMENTATION_ONLY = {"segformer", "maskformer", "static"}
 
 
 def build_predictor(args: argparse.Namespace):
@@ -619,6 +684,22 @@ def build_predictor(args: argparse.Namespace):
             return {"segmentation": classes.permute(0, 2, 3, 1).unsqueeze(0)}
 
         return predict, CLIP_LENGTH // 2, {"model": "segformer", "frames_seen": CLIP_LENGTH}
+
+    if args.model == "da3":
+        model = load_da3_baseline(args.checkpoint, args.device)
+
+        def predict(images: list[np.ndarray]) -> dict:
+            batch = preprocess_frames(
+                as_frames(images), target_size=args.target_size, mode=args.resize_mode,
+                keep_ratio=False, patch_size=14,
+            ).unsqueeze(0).to(args.device)
+            with torch.inference_mode(), torch.amp.autocast("cuda", dtype=torch.bfloat16):
+                depth = model(batch)["depth"]                   # (1, S, H, W)
+            points = torch.zeros(*depth.shape, 3, device=depth.device)
+            points[..., 2] = depth
+            return {"local_points": points}                     # depth only: no pose head
+
+        return predict, CLIP_LENGTH // 2, {"model": "da3", "frames_seen": CLIP_LENGTH}
 
     if args.model == "maskformer":
         processor, model = load_maskformer_baseline(args.device)
@@ -691,47 +772,6 @@ def build_predictor(args: argparse.Namespace):
     return predict, config.m, {"model": "lfg", **config.to_dict()}
 
 
-# SegFormer is trained on Cityscapes train ids; this is the same grouping the LFG
-# segmentation head was distilled with.
-CITYSCAPES_TRAIN_ID_TO_CLASS = {
-    0: 0,                                              # road
-    6: 3, 7: 4, 10: 5,                                 # traffic light, traffic sign, sky
-    11: 2, 12: 2,                                      # person, rider
-    13: 1, 14: 1, 15: 1, 16: 1, 17: 1, 18: 1,          # car/truck/bus/train/motorcycle/bicycle
-    1: 6, 2: 6, 3: 6, 4: 6, 5: 6, 8: 6, 9: 6,          # sidewalk/building/wall/fence/pole/vegetation/terrain
-}
-
-
-def load_segformer_baseline(device: str):
-    """The SegFormer teacher, given every RGB frame of the clip."""
-    from transformers import SegformerForSemanticSegmentation, SegformerImageProcessor
-
-    name = "nvidia/segformer-b5-finetuned-cityscapes-1024-1024"
-    return (SegformerImageProcessor.from_pretrained(name),
-            SegformerForSemanticSegmentation.from_pretrained(name).eval().to(device))
-
-
-def load_maskformer_baseline(device: str):
-    """MaskFormer trained on Cityscapes, given every RGB frame of the clip."""
-    from transformers import MaskFormerForInstanceSegmentation, MaskFormerImageProcessor
-
-    name = "facebook/maskformer-resnet101-cityscapes"
-    return (MaskFormerImageProcessor.from_pretrained(name),
-            MaskFormerForInstanceSegmentation.from_pretrained(name).eval().to(device))
-
-
-def load_vggt_baseline(device: str):
-    """VGGT, a depth/pose baseline that -- like pi3 -- is given every frame of the clip."""
-    try:
-        from vggt.models.vggt import VGGT
-    except ImportError as exc:  # pragma: no cover - depends on an optional package
-        raise SystemExit(
-            "The vggt baseline needs the vggt package "
-            "(pip install git+https://github.com/facebookresearch/vggt.git)."
-        ) from exc
-    return VGGT.from_pretrained("facebook/VGGT-1B").eval().to(device)
-
-
 def evaluate(args: argparse.Namespace) -> dict:
     SEG_AVERAGE["over_all_classes"] = args.seg_average == "all"
     predict, future_start, model_info = build_predictor(args)
@@ -760,6 +800,12 @@ def evaluate(args: argparse.Namespace) -> dict:
         )
     # Score sequence by sequence: the metrics are order-independent, but reading a clip is far
     # cheaper when the sequence it belongs to is already the one held in memory.
+    if args.model in SEGMENTATION_ONLY and not any(clip.load_labels for clip in clips):
+        raise SystemExit(
+            f"{args.dataset} has no semantic labels, so the {args.model} baseline has nothing "
+            "to score. Segmentation is evaluated on KITTI-360."
+        )
+
     clips = sorted((by_name[name] for name in wanted), key=lambda clip: clip.name)
     print(f"{len(clips)} clips from {args.clip_list} | {args.alignment} alignment")
 
@@ -897,7 +943,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint", default="", help="Path to the model weights.")
     parser.add_argument(
         "--model",
-        choices=["lfg", "pi3", "vggt", "segformer", "maskformer", "static"],
+        choices=["lfg", "pi3", "vggt", "da3", "segformer", "maskformer", "static"],
         default="lfg",
         help="lfg (default) sees only the history; the pi3 baseline is given every frame.",
     )

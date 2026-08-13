@@ -1,0 +1,102 @@
+{
+  "checkpoint": "",
+  "dataset": "waymo",
+  "clips_scored": 200,
+  "clips_evaluated": 200,
+  "clip_list": "eval/clips/waymo_200.txt",
+  "frame_stride": 5,
+  "cache_dir": null,
+  "alignment": "per-clip",
+  "max_depth": 80.0,
+  "model": {
+    "model": "da3",
+    "frames_seen": 6
+  },
+  "metrics": {
+    "overall_absrel": {
+      "mean": 0.15130889588346083,
+      "std": 0.07306186171107236,
+      "count": 200
+    },
+    "overall_rmse": {
+      "mean": 5.52705121845007,
+      "std": 1.687482960677016,
+      "count": 200
+    },
+    "predicted_absrel": {
+      "mean": 0.15382330967113375,
+      "std": 0.07721597074527389,
+      "count": 200
+    },
+    "predicted_rmse": {
+      "mean": 5.525156725446383,
+      "std": 1.7569046831362607,
+      "count": 200
+    },
+    "observed_absrel": {
+      "mean": 0.14879448209578794,
+      "std": 0.07212278549498069,
+      "count": 200
+    },
+    "observed_rmse": {
+      "mean": 5.528945711453756,
+      "std": 1.7488001850758987,
+      "count": 200
+    },
+    "trajectory_ate": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "trajectory_rot": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "trajectory_trans": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_pa": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_miou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_mdice": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "overall_fwiou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_pa": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_miou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_mdice": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    },
+    "predicted_fwiou": {
+      "mean": NaN,
+      "std": NaN,
+      "count": 0
+    }
+  }
+}

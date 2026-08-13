@@ -4,4 +4,5 @@ opencv-python>=4.8
 pillow>=10.0
 matplotlib>=3.8
 tqdm>=4.66
+pyarrow>=14.0
 yacs>=0.1.8

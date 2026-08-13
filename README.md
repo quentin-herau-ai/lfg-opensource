@@ -227,14 +227,19 @@ The clips behind the tables below are listed in `eval/clips/`; the KITTI-360 lis
 default. Point `--clip-list` at your own file (one `<sequence>:<first frame>` per line) to score
 a different set. Baselines run through the same harness via `--model`:
 
-| `--model` | Requires |
-|---|---|
-| `lfg` (default) | this repo |
-| `pi3` | [Pi3](https://github.com/yyfz/Pi3) on `PYTHONPATH`, `--checkpoint` its weights |
-| `vggt` | `pip install git+https://github.com/facebookresearch/vggt.git` |
-| `segformer` | `transformers` |
-| `maskformer` | `transformers` |
-| `static` | nothing; carries the last observed frame's labels forward |
+| `--model` | Predicts | Extra install |
+|---|---|---|
+| `lfg` (default) | depth, semantics, trajectory | none |
+| `pi3` | depth, trajectory | [Pi3](https://github.com/yyfz/Pi3) on `PYTHONPATH`; pass its weights to `--checkpoint` |
+| `vggt` | depth, trajectory | `pip install git+https://github.com/facebookresearch/vggt.git` |
+| `da3` | depth | `pip install --no-deps git+https://github.com/ByteDance-Seed/Depth-Anything-3.git` |
+| `segformer` | semantics | `pip install transformers` |
+| `maskformer` | semantics | `pip install transformers` |
+| `static` | semantics | none; carries the last observed frame's labels forward |
+
+Baseline weights download automatically on first use, except Pi3, whose checkpoint you pass
+explicitly. `da3` needs `--no-deps` because its declared dependencies pin an old `moviepy` and
+require `xformers`, neither of which this code path uses.
 
 ### Results
 
@@ -249,6 +254,7 @@ a different set. Baselines run through the same harness via `--model`:
 |---|---|---|---|---|---|
 | Pi3 | 6 | 0.091 ± 0.039 | 2.65 ± 0.96 | 0.093 ± 0.045 | 2.73 ± 1.08 |
 | VGGT | 6 | 0.100 ± 0.033 | 2.78 ± 0.91 | 0.091 ± 0.033 | 2.87 ± 1.04 |
+| DA3 | 6 | 0.120 ± 0.038 | 3.12 ± 0.98 | 0.121 ± 0.042 | 3.17 ± 1.19 |
 | **LFG** | 3 | 0.142 ± 0.051 | 3.46 ± 1.11 | 0.164 ± 0.061 | 4.05 ± 1.45 |
 
 **Trajectory** (ATE after similarity alignment; rotation and translation error relative to the
@@ -278,6 +284,7 @@ first frame)
 |---|---|---|---|---|---|
 | Pi3 | 6 | 0.145 ± 0.094 | 5.32 ± 2.00 | 0.146 ± 0.096 | 5.31 ± 2.05 |
 | VGGT | 6 | 0.080 ± 0.042 | 3.89 ± 1.12 | 0.080 ± 0.043 | 3.92 ± 1.20 |
+| DA3 | 6 | 0.151 ± 0.073 | 5.53 ± 1.69 | 0.154 ± 0.077 | 5.53 ± 1.76 |
 | **LFG** | 3 | 0.172 ± 0.087 | 5.85 ± 1.87 | 0.184 ± 0.095 | 6.37 ± 2.11 |
 
 **Trajectory**
@@ -290,6 +297,28 @@ first frame)
 
 Seeing only three frames, LFG stays close to Pi3 given all six — within 0.8 m RMSE on KITTI-360
 and 0.5 m on Waymo — while its predicted frames degrade only modestly against its observed ones.
+
+### Runtime
+
+On one A100, 200 clips takes roughly 2 minutes on KITTI-360 and 9 minutes on Waymo. Waymo is
+slower because decoding its LiDAR parquet dominates — the GPU is mostly idle — so `--cache-dir`
+stores the decoded ground-truth depth and makes later runs over the same clips about twice as
+fast (532 s to 251 s here, for 86 MB on disk). Results are identical either way; the cache is
+keyed on everything that affects them.
+
+```bash
+python evaluate.py --checkpoint checkpoints/lfg_seg_motion_m3n3.pt \
+  --dataset waymo --data-root /path/to/waymo_v2/validation \
+  --clip-list eval/clips/waymo_200.txt --cache-dir /tmp/lfg_eval_cache
+```
+
+### Tests
+
+Metric unit tests need no dataset or weights:
+
+```bash
+pip install pytest && python -m pytest tests/
+```
 
 ### Conventions
 
