@@ -404,7 +404,7 @@ def _kitti360_calibration(root: Path) -> tuple[np.ndarray, np.ndarray]:
         for line in handle:
             key, _, values = line.partition(":")
             if values.strip():
-                perspective[key.strip()] = np.fromstring(values, sep=" ")
+                perspective[key.strip()] = np.array(values.split(), dtype=float)
     projection = perspective["P_rect_00"].reshape(3, 4)
     rect = np.eye(4)
     rect[:3, :3] = perspective["R_rect_00"].reshape(3, 3)

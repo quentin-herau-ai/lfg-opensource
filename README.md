@@ -35,7 +35,6 @@ inference path and the evaluation harness used for the paper's KITTI-360 benchma
 - [Checkpoints](#-checkpoints)
 - [Getting Started](#-getting-started)
 - [Evaluation](#-evaluation)
-- [Results](#-results)
 - [Citation](#-citation)
 - [License](#️-license)
 - [Acknowledgments](#-acknowledgments)
@@ -230,14 +229,14 @@ a different set, and `--cache-dir` to reuse decoded ground truth between runs.
 To reproduce every row of the tables below:
 
 ```bash
-for MODEL in lfg pi3 vggt da3 segformer maskformer static; do
-  python evaluate.py --model $MODEL --checkpoint <weights for lfg and pi3> \
-    --dataset kitti360 --data-root /path/to/KITTI-360 \
-    --output results/$MODEL.json
-done
+eval/run_all.sh --lfg checkpoints/lfg_seg_motion_m3n3.pt \
+                --kitti360 /path/to/KITTI-360 \
+                --waymo /path/to/waymo_v2/validation \
+                --pi3 /path/to/pi3.safetensors
 ```
 
-Baselines run through the same harness via `--model`:
+Waymo and Pi3 are optional — omit either flag and those rows are skipped. Individual models run
+through the same harness via `--model`:
 
 | `--model` | Predicts | Extra install |
 |---|---|---|
@@ -294,50 +293,33 @@ first frame, translation as a share of the distance travelled.
 
 | Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
 |---|---|---|---|---|---|---|---|
-| Pi3 | 6 | 0.145 | 5.32 | 0.834 | 0.146 | 5.31 | 0.832 |
-| VGGT | 6 | 0.080 | 3.89 | 0.937 | 0.080 | 3.92 | 0.936 |
-| DA3 | 6 | 0.151 | 5.53 | 0.827 | 0.154 | 5.52 | 0.825 |
-| **LFG** | 3 | 0.172 | 5.86 | 0.783 | 0.184 | 6.37 | 0.766 |
+| Pi3 | 6 | 0.140 | 5.27 | 0.842 | 0.140 | 5.26 | 0.841 |
+| VGGT | 6 | 0.077 | 3.84 | 0.941 | 0.077 | 3.87 | 0.940 |
+| DA3 | 6 | 0.151 | 5.57 | 0.829 | 0.152 | 5.55 | 0.829 |
+| **LFG** | 3 | 0.172 | 5.95 | 0.781 | 0.184 | 6.55 | 0.764 |
 
-**Trajectory** — 162 of the 200 clips; the rest were stationary, where trajectory error is
-undefined.
+**Trajectory**
 
 | Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
 |---|---|---|---|---|
-| Pi3 | 6 | 0.08 | 0.58 | 2.4 |
-| VGGT | 6 | 0.06 | 0.41 | 2.3 |
-| **LFG** | 3 | 0.31 | 0.86 | 10.7 |
+| Pi3 | 6 | 0.07 | 0.51 | 2.3 |
+| VGGT | 6 | 0.06 | 0.37 | 2.0 |
+| **LFG** | 3 | 0.31 | 0.81 | 13.3 |
 
-Seeing only three of the six frames, LFG stays within 0.8 m RMSE of Pi3 on KITTI-360 and 0.5 m on
-Waymo, both of which see all six.
+Seeing only three of the six frames, LFG stays within 0.8 m RMSE of Pi3 on KITTI-360 and 0.7 m on
+Waymo, both of which see all six. The Waymo clips are all of a moving vehicle, since trajectory
+error is undefined when the vehicle is stopped.
 
 ### Conventions
 
-**Depth.** Point maps are predicted up to a single unknown scale and shift per clip, so a
-least-squares affine fit to the LiDAR is made once per clip before scoring. AbsRel and RMSE are
-both dominated by the worst pixels, so delta<1.25 — the share of pixels within a factor of 1.25
-of the truth — is reported alongside them. Ground truth beyond 80 m is ignored, and frames with
-fewer than 100 valid ground-truth pixels are skipped.
-
-**Semantics.** Seven classes: road, vehicle, person, traffic light, traffic sign, sky, and
-everything else. Pixel accuracy and mIoU are averaged per frame, over the classes present in
-that frame. Cityscapes void labels are excluded rather than folded into the background class.
-
-**Trajectory.** ATE is measured after a similarity alignment, since predicted poses are defined
-only up to one. Rotation and translation errors compare each frame's pose against the first.
-Translation is reported as a share of the distance travelled — in metres it grows with the
-length of the clip, so the same model scores differently at a different frame rate.
-
-**Clip spacing.** Clips are sampled at 2 Hz (`--frame-stride 5` on these 10 Hz datasets), one of
-the rates the released checkpoint was trained on and the rate at which its encoder is used
-downstream. Across six *consecutive* frames — half a second — little moves, and predicting the
-future becomes close to trivial.
-
-## 📈 Results
-
-See [Evaluation](#-evaluation) for the full tables. Given only three of six frames, LFG reaches
-0.142 AbsRel / 3.46 m RMSE on KITTI-360 depth and 0.172 / 5.86 m on Waymo, in both cases within
-0.8 m RMSE of Pi3 given every frame.
+- **Depth** is affine-aligned to the LiDAR once per clip, since point maps carry one unknown
+  scale and shift. Ground truth beyond 80 m is ignored.
+- **Semantics** uses seven classes; PA and mIoU are averaged per frame over the classes present
+  in it, excluding Cityscapes void labels.
+- **Trajectory** aligns predicted poses by a similarity before measuring ATE. Translation error
+  is a share of distance travelled, so it does not grow with the length of the clip.
+- **Clips** are sampled at 2 Hz (`--frame-stride 5`), a rate the checkpoint was trained at and
+  the one its encoder runs at downstream.
 
 ## 📝 Citation
 
