@@ -918,10 +918,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--frame-stride",
         type=int,
-        default=2,
+        default=5,
         help="Spacing between the six frames of a clip, in source frames. Both datasets record "
-             "at 10 Hz, so the default of 2 gives a 5 Hz clip -- one of the rates the released "
-             "checkpoint was trained on.",
+             "at 10 Hz, so the default of 5 gives a 2 Hz clip, the rate the reported results "
+             "use and one of the rates the released checkpoint was trained on.",
     )
     parser.add_argument(
         "--cache-dir",
