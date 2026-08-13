@@ -266,69 +266,104 @@ output, including per-metric standard deviations, is in `eval/results/10hz/` and
 
 **Depth** — AbsRel, RMSE (m) and the share of pixels within a factor of 1.25, against Velodyne.
 
-| Model | Frames seen | Rate | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
-|---|---|---|---|---|---|---|---|---|
-| Pi3 | 6 | 10 Hz | 0.087 | 2.64 | 0.930 | 0.087 | 2.67 | 0.929 |
-| Pi3 | 6 | 2 Hz | 0.091 | 2.65 | 0.928 | 0.093 | 2.73 | 0.923 |
-| VGGT | 6 | 10 Hz | 0.096 | 2.76 | 0.919 | 0.092 | 2.79 | 0.917 |
-| VGGT | 6 | 2 Hz | 0.100 | 2.78 | 0.919 | 0.091 | 2.87 | 0.917 |
-| DA3 | 6 | 10 Hz | 0.116 | 2.96 | 0.888 | 0.115 | 2.98 | 0.890 |
-| DA3 | 6 | 2 Hz | 0.120 | 3.12 | 0.878 | 0.121 | 3.17 | 0.876 |
-| **LFG** | 3 | 10 Hz | 0.101 | 2.87 | 0.913 | 0.101 | 2.98 | 0.909 |
-| **LFG** | 3 | 2 Hz | 0.142 | 3.46 | 0.836 | 0.164 | 4.05 | 0.786 |
+*10 Hz — 0.5 s horizon*
+
+| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+|---|---|---|---|---|---|---|---|
+| Pi3 | 6 | 0.087 | 2.64 | 0.930 | 0.087 | 2.67 | 0.929 |
+| VGGT | 6 | 0.096 | 2.76 | 0.919 | 0.092 | 2.79 | 0.917 |
+| DA3 | 6 | 0.116 | 2.96 | 0.888 | 0.115 | 2.98 | 0.890 |
+| **LFG** | 3 | 0.101 | 2.87 | 0.913 | 0.101 | 2.98 | 0.909 |
+
+*2 Hz — 2.5 s horizon*
+
+| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+|---|---|---|---|---|---|---|---|
+| Pi3 | 6 | 0.091 | 2.65 | 0.928 | 0.093 | 2.73 | 0.923 |
+| VGGT | 6 | 0.100 | 2.78 | 0.919 | 0.091 | 2.87 | 0.917 |
+| DA3 | 6 | 0.120 | 3.12 | 0.878 | 0.121 | 3.17 | 0.876 |
+| **LFG** | 3 | 0.142 | 3.46 | 0.836 | 0.164 | 4.05 | 0.786 |
 
 **Trajectory** — ATE after a similarity alignment; rotation and translation error against the
 first frame, translation as a share of the distance travelled.
 
-| Model | Frames seen | Rate | ATE (m) | Rot (deg) | Trans (%) |
-|---|---|---|---|---|---|
-| Pi3 | 6 | 10 Hz | 0.02 | 0.25 | 9.9 |
-| Pi3 | 6 | 2 Hz | 0.09 | 0.91 | 9.5 |
-| VGGT | 6 | 10 Hz | 0.03 | 0.33 | 10.3 |
-| VGGT | 6 | 2 Hz | 0.20 | 1.37 | 10.8 |
-| **LFG** | 3 | 10 Hz | 0.10 | 0.57 | 22.7 |
-| **LFG** | 3 | 2 Hz | 0.27 | 2.46 | 18.4 |
+*10 Hz — 0.5 s horizon*
+
+| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
+|---|---|---|---|---|
+| Pi3 | 6 | 0.02 | 0.25 | 9.9 |
+| VGGT | 6 | 0.03 | 0.33 | 10.3 |
+| **LFG** | 3 | 0.10 | 0.57 | 22.7 |
+
+*2 Hz — 2.5 s horizon*
+
+| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
+|---|---|---|---|---|
+| Pi3 | 6 | 0.09 | 0.91 | 9.5 |
+| VGGT | 6 | 0.20 | 1.37 | 10.8 |
+| **LFG** | 3 | 0.27 | 2.46 | 18.4 |
 
 **Semantics** — seven classes, averaged per frame over the classes present.
 
-| Model | Frames seen | Rate | Split | PA | mIoU |
-|---|---|---|---|---|---|
-| Static (labels carried forward) | 3 | 10 Hz | predicted | 0.928 | 0.739 |
-| Static (labels carried forward) | 3 | 2 Hz | predicted | 0.822 | 0.519 |
-| MaskFormer | 6 | 10 Hz | overall | 0.938 | 0.626 |
-| MaskFormer | 6 | 2 Hz | overall | 0.938 | 0.623 |
-| SegFormer | 6 | 10 Hz | overall | 0.950 | 0.695 |
-| SegFormer | 6 | 2 Hz | overall | 0.952 | 0.706 |
-| **LFG** | 3 | 10 Hz | overall | 0.933 | 0.716 |
-| **LFG** | 3 | 2 Hz | overall | 0.902 | 0.665 |
-| **LFG** | 3 | 10 Hz | predicted | 0.927 | 0.707 |
-| **LFG** | 3 | 2 Hz | predicted | 0.866 | 0.607 |
+*10 Hz — 0.5 s horizon*
+
+| Model | Frames seen | Split | PA | mIoU |
+|---|---|---|---|---|
+| Static (labels carried forward) | 3 | predicted | 0.928 | 0.739 |
+| MaskFormer | 6 | overall | 0.938 | 0.626 |
+| SegFormer | 6 | overall | 0.950 | 0.695 |
+| **LFG** | 3 | overall | 0.933 | 0.716 |
+| **LFG** | 3 | predicted | 0.927 | 0.707 |
+
+*2 Hz — 2.5 s horizon*
+
+| Model | Frames seen | Split | PA | mIoU |
+|---|---|---|---|---|
+| Static (labels carried forward) | 3 | predicted | 0.822 | 0.519 |
+| MaskFormer | 6 | overall | 0.938 | 0.623 |
+| SegFormer | 6 | overall | 0.952 | 0.706 |
+| **LFG** | 3 | overall | 0.902 | 0.665 |
+| **LFG** | 3 | predicted | 0.866 | 0.607 |
 
 #### Waymo Open Dataset
 
 **Depth**
 
-| Model | Frames seen | Rate | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
-|---|---|---|---|---|---|---|---|---|
-| Pi3 | 6 | 10 Hz | 0.118 | 4.98 | 0.872 | 0.119 | 5.00 | 0.871 |
-| Pi3 | 6 | 2 Hz | 0.121 | 5.15 | 0.875 | 0.120 | 5.15 | 0.873 |
-| VGGT | 6 | 10 Hz | 0.074 | 3.88 | 0.940 | 0.074 | 3.91 | 0.940 |
-| VGGT | 6 | 2 Hz | 0.073 | 3.89 | 0.943 | 0.073 | 3.96 | 0.943 |
-| DA3 | 6 | 10 Hz | 0.142 | 5.59 | 0.839 | 0.143 | 5.62 | 0.838 |
-| DA3 | 6 | 2 Hz | 0.147 | 5.73 | 0.832 | 0.147 | 5.71 | 0.830 |
-| **LFG** | 3 | 10 Hz | 0.133 | 5.21 | 0.847 | 0.135 | 5.40 | 0.845 |
-| **LFG** | 3 | 2 Hz | 0.155 | 5.86 | 0.810 | 0.166 | 6.53 | 0.792 |
+*10 Hz — 0.5 s horizon*
+
+| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+|---|---|---|---|---|---|---|---|
+| Pi3 | 6 | 0.118 | 4.98 | 0.872 | 0.119 | 5.00 | 0.871 |
+| VGGT | 6 | 0.074 | 3.88 | 0.940 | 0.074 | 3.91 | 0.940 |
+| DA3 | 6 | 0.142 | 5.59 | 0.839 | 0.143 | 5.62 | 0.838 |
+| **LFG** | 3 | 0.133 | 5.21 | 0.847 | 0.135 | 5.40 | 0.845 |
+
+*2 Hz — 2.5 s horizon*
+
+| Model | Frames seen | AbsRel | RMSE | δ<1.25 | AbsRel (pred.) | RMSE (pred.) | δ<1.25 (pred.) |
+|---|---|---|---|---|---|---|---|
+| Pi3 | 6 | 0.121 | 5.15 | 0.875 | 0.120 | 5.15 | 0.873 |
+| VGGT | 6 | 0.073 | 3.89 | 0.943 | 0.073 | 3.96 | 0.943 |
+| DA3 | 6 | 0.147 | 5.73 | 0.832 | 0.147 | 5.71 | 0.830 |
+| **LFG** | 3 | 0.155 | 5.86 | 0.810 | 0.166 | 6.53 | 0.792 |
 
 **Trajectory**
 
-| Model | Frames seen | Rate | ATE (m) | Rot (deg) | Trans (%) |
-|---|---|---|---|---|---|
-| Pi3 | 6 | 10 Hz | 0.03 | 0.19 | 2.9 |
-| Pi3 | 6 | 2 Hz | 0.09 | 0.73 | 2.4 |
-| VGGT | 6 | 10 Hz | 0.02 | 0.15 | 2.4 |
-| VGGT | 6 | 2 Hz | 0.08 | 0.51 | 2.0 |
-| **LFG** | 3 | 10 Hz | 0.31 | 0.26 | 20.8 |
-| **LFG** | 3 | 2 Hz | 0.29 | 0.98 | 5.2 |
+*10 Hz — 0.5 s horizon*
+
+| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
+|---|---|---|---|---|
+| Pi3 | 6 | 0.03 | 0.19 | 2.9 |
+| VGGT | 6 | 0.02 | 0.15 | 2.4 |
+| **LFG** | 3 | 0.31 | 0.26 | 20.8 |
+
+*2 Hz — 2.5 s horizon*
+
+| Model | Frames seen | ATE (m) | Rot (deg) | Trans (%) |
+|---|---|---|---|---|
+| Pi3 | 6 | 0.09 | 0.73 | 2.4 |
+| VGGT | 6 | 0.08 | 0.51 | 2.0 |
+| **LFG** | 3 | 0.29 | 0.98 | 5.2 |
 
 ### Conventions
 
